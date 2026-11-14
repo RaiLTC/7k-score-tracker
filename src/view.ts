@@ -13,6 +13,8 @@ export const SKILL_COLORS: Record<string, string> = {
 const esc = (s: unknown): string => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const rateText = (rate: number) => String(num(rate) || 1);
 const skillName = (sk: string) => TEXT.skills[sk] ?? sk;
+/** The share a skill needs to show in the Top skills column. */
+const TOP_SHARE = 0.15;
 const PER_MINUTE: Record<Unit, number> = { h: 60, m: 1, s: 1 / 60 };
 const rateXp = (perMinute: number, unit: Unit) => {
 	const v = perMinute * PER_MINUTE[unit];
@@ -29,7 +31,8 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const total = totalOf(gains);
 	const parts = total > 0 ? SKILLS_7K.filter((sk) => num(gains[sk]) > 0) : [];
 	if (as === 'top') {
-		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).slice(0, 3);
+		// up to 3, and only those with a real share (15% or more); the biggest one always shows
+		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).filter((sk, i) => i === 0 || num(gains[sk]) / total >= TOP_SHARE).slice(0, 3);
 		return `<span class="top-skills">${top.map((sk) => `<span>${skillName(sk)}</span>`).join('')}</span>`;
 	}
 	return `<span class="skills">${parts.map((sk) => `<i style="width:${(num(gains[sk]) / total) * 100}%;background:${SKILL_COLORS[sk]}" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;

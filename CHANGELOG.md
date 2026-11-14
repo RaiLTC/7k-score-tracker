@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.07] - 2026-11-14
+
+### Changed
+
+- Top skills: stacked, and only skills with 15% of the XP or more (up to 3)
+
 ## [0.1.06] - 2026-11-14
 
 ### Changed
