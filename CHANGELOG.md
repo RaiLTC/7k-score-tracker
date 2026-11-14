@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.02] - 2026-11-14
+
+### Changed
+
+- Opens with Alt+Shift+S
+
 ## [0.1.01] - 2026-11-14
 
 ### Changed

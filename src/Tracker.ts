@@ -9,7 +9,7 @@ import styles from './styles.css';
 import { TEXT } from './text.js';
 import { bestHtml, messageHtml, playsHtml } from './view.js';
 
-const TOGGLE = 'Alt+Shift+R';
+const TOGGLE = 'Alt+Shift+S';
 /** Which view is shown: remembered on this computer (a convenience only, so a failed save changes nothing). */
 const VIEW_KEY = 'oss-idle-addon:7k-score-tracker:view';
 type View = 'plays' | 'best';
