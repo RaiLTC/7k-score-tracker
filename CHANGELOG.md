@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.17] - 2026-11-15
+
+### Added
+
+- Recent plays: an XP/h, XP/m or XP/s column for each play, with the same switch as the other tabs
+
 ## [0.1.16] - 2026-11-14
 
 ### Changed

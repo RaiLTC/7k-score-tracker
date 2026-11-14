@@ -126,7 +126,7 @@ export class Tracker extends Addon {
 			if (!plays) return;
 			// what's open stays open when the lists are drawn again
 			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map((el) => el.dataset.key));
-			playsList.innerHTML = playsHtml(plays, Date.now(), this.settings.skillsAs);
+			playsList.innerHTML = playsHtml(plays, Date.now(), this.settings.unit, this.settings.skillsAs);
 			const maps = bestMaps(plays);
 			bestList.innerHTML = bestHtml(maps, this.settings.unit, this.settings.skillsAs);
 			skillsList.innerHTML = bySkillHtml(maps, this.settings.unit);
@@ -154,7 +154,7 @@ export class Tracker extends Addon {
 			$('.best').hidden = $('.legend').hidden = next !== 'best';
 			$('.by-skill').hidden = next !== 'skills';
 			$('.settings').hidden = next !== 'settings';
-			$('[data-unit-switch]').hidden = next !== 'best' && next !== 'skills';
+			$('[data-unit-switch]').hidden = next === 'settings';
 			gear.setAttribute('aria-pressed', String(next === 'settings'));
 			if (next !== 'settings' && next !== this.settings.view) this.save({ view: next });
 			stopRecording();

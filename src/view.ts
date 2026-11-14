@@ -67,16 +67,19 @@ const trend = (latest: number, previous: number) => {
 	return ` <span class="trend ${cls}" title="${text}" aria-label="${text}">${arrow}</span>`;
 };
 
-export const playsHtml = (plays: Play[], now: number, as: SkillsAs): string => {
+export const playsHtml = (plays: Play[], now: number, unit: Unit, as: SkillsAs): string => {
 	if (!plays.length) return `<div class="empty">${TEXT.noPlays}</div>`;
 	const c = TEXT.cols;
-	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${c.skills}</span></div>${plays.map((p) => {
+	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${plays.map((p) => {
+		// the play's XP over its length (the map's length at the play's rate)
+		const minutes = p.info && p.info.lengthSec > 0 ? p.info.lengthSec / (num(p.rate) || 1) / 60 : 0;
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
 		return `<div ${row(`${p.playedAt}:${p.beatmapId}`)}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
 			${mapCell(p.info, p.beatmapId, mods)}
 			<span>${rateText(p.rate)}</span>
 			<span>${p.total > 0 ? xpText(p.total) : '<span class="muted">–</span>'}</span>
+			<span class="strong">${p.total > 0 && minutes ? rateXp(p.total / minutes, unit) : '<span class="muted">–</span>'}</span>
 			${skillsCell(p.gains, as)}
 		</div>${breakdown(p.gains)}`;
 	}).join('')}`;
