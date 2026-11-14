@@ -8,13 +8,22 @@ import { type Play, bestMaps } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, settingsStore } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
-import { bestHtml, legendHtml, messageHtml, playsHtml } from './view.js';
+import { bestHtml, bySkillHtml, legendHtml, messageHtml, playsHtml } from './view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings';
 
 // Tabler Icons (MIT): settings, outline
 const GEAR = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></svg>';
+
+/** Text that reads on the accent: dark on a light colour, white on a dark one (WCAG relative luminance). */
+const onAccent = (hex: string): string => {
+	const [r, g, b] = [1, 3, 5].map((i) => {
+		const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+	}) as [number, number, number];
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.18 ? '#17181d' : '#ffffff';
+};
 
 /** A choice between a few options, as a segmented control of radios. */
 const choice = (key: keyof Settings, label: string, options: Record<string, string>) =>
@@ -55,6 +64,7 @@ export class Tracker extends Addon {
 					<span class="seg" role="tablist" aria-label="${TEXT.views}">
 						<button type="button" role="tab" data-view="plays" aria-selected="true">${TEXT.plays}</button>
 						<button type="button" role="tab" data-view="best" aria-selected="false">${TEXT.best}</button>
+						<button type="button" role="tab" data-view="skills" aria-selected="false">${TEXT.bySkill}</button>
 					</span>
 					<span class="spacer"></span>
 					<span data-unit-switch>${choice('unit', TEXT.unit, TEXT.units)}</span>
@@ -66,6 +76,7 @@ export class Tracker extends Addon {
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span></div><div class="legend-list">${legendHtml()}</div></section>
 					<section class="card best" hidden><div class="card-head"><span class="title">${TEXT.best}</span><span class="muted" data-best-note></span></div><div class="list" data-list="best"></div></section>
+					<section class="card by-skill" hidden><div class="card-head"><span class="title">${TEXT.bySkill}</span><span class="muted">${TEXT.bySkillNote}</span></div><div class="list" data-list="skills"></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
 						${settingRow(TEXT.keybind, TEXT.keybindHelp, `<button type="button" class="keybind" data-action="record"></button><button type="button" class="btn" data-action="reset-key">${TEXT.reset}</button>`, ' data-key-help')}
 						${settingRow(TEXT.skillsAs, TEXT.skillsAsHelp, choice('skillsAs', TEXT.skillsAs, TEXT.skillsAsOptions))}
@@ -87,7 +98,7 @@ export class Tracker extends Addon {
 		this.own(() => this.hotkeys.dispose());
 
 		const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
-		const win = $('.window'), playsList = $('[data-list="plays"]'), bestList = $('[data-list="best"]'), count = $('[data-count]');
+		const win = $('.window'), playsList = $('[data-list="plays"]'), bestList = $('[data-list="best"]'), skillsList = $('[data-list="skills"]'), count = $('[data-count]');
 		const keyButton = $('[data-action="record"]'), keyHelp = $('[data-key-help]'), gear = $('[data-action="settings"]');
 		const customColor = $<HTMLInputElement>('[data-custom-color]');
 
@@ -97,6 +108,7 @@ export class Tracker extends Addon {
 			win.dataset.buttons = s.buttons;
 			win.style.setProperty('--accent', accent);
 			win.style.setProperty('--accent-soft', `color-mix(in srgb, ${accent} 12%, transparent)`);
+			win.style.setProperty('--on-accent', onAccent(accent));
 			for (const b of root.querySelectorAll<HTMLElement>('[data-set]')) b.setAttribute('aria-checked', String(String(s[b.dataset.set as keyof Settings]) === b.dataset.value));
 			for (const b of root.querySelectorAll<HTMLElement>('[data-accent]')) b.setAttribute('aria-checked', String(b.dataset.accent === s.accent));
 			$('.swatches .custom').style.background = s.accent === 'custom' ? s.customAccent : '';
@@ -108,7 +120,9 @@ export class Tracker extends Addon {
 		const renderLists = () => {
 			if (!plays) return;
 			playsList.innerHTML = playsHtml(plays, Date.now(), this.settings.skillsAs);
-			bestList.innerHTML = bestHtml(bestMaps(plays), this.settings.unit, this.settings.skillsAs);
+			const maps = bestMaps(plays);
+			bestList.innerHTML = bestHtml(maps, this.settings.unit, this.settings.skillsAs);
+			skillsList.innerHTML = bySkillHtml(maps, this.settings.unit);
 		};
 
 		const stopRecording = () => {
@@ -124,8 +138,9 @@ export class Tracker extends Addon {
 			for (const b of root.querySelectorAll<HTMLElement>('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === next));
 			$('.plays').hidden = next !== 'plays';
 			$('.best').hidden = $('.legend').hidden = next !== 'best';
+			$('.by-skill').hidden = next !== 'skills';
 			$('.settings').hidden = next !== 'settings';
-			$('[data-unit-switch]').hidden = next !== 'best';
+			$('[data-unit-switch]').hidden = next !== 'best' && next !== 'skills';
 			gear.setAttribute('aria-pressed', String(next === 'settings'));
 			if (next !== 'settings' && next !== this.settings.view) this.save({ view: next });
 			stopRecording();
@@ -133,7 +148,8 @@ export class Tracker extends Addon {
 
 		const load = async () => {
 			const ticket = ++this.loading;
-			playsList.innerHTML = bestList.innerHTML = messageHtml(TEXT.loading);
+			// the first time only: after that, the old lists stay up until the new ones are ready
+			if (!plays) playsList.innerHTML = bestList.innerHTML = skillsList.innerHTML = messageHtml(TEXT.loading);
 			try {
 				const api = (this.host as { api?: Api } | undefined)?.api ?? (globalThis as { ossIdle?: { api?: Api } }).ossIdle?.api;
 				const result = await recent7k(api);
@@ -144,8 +160,8 @@ export class Tracker extends Addon {
 			} catch (e) {
 				if (ticket !== this.loading) return;
 				this.log.error('loading failed', e);
-				playsList.innerHTML = messageHtml(e instanceof TrackerError ? e.message : String(e), true);
-				bestList.innerHTML = '';
+				const message = messageHtml(e instanceof TrackerError ? e.message : TEXT.loadFailed, true);
+				playsList.innerHTML = bestList.innerHTML = skillsList.innerHTML = message;
 			}
 		};
 
@@ -192,14 +208,22 @@ export class Tracker extends Addon {
 		this.on(head, 'pointerdown', (e) => {
 			const p = e as PointerEvent;
 			if (p.button !== 0 || (p.target as Element).closest('button')) return;
+			// layout is read once, at the start; moving only sets transform, once a frame
 			const box = win.getBoundingClientRect(), dx = p.clientX - box.left, dy = p.clientY - box.top;
+			win.style.left = `${box.left}px`; win.style.top = `${box.top}px`; win.style.transform = 'none';
 			head.setPointerCapture(p.pointerId);
+			let frame = 0, x = 0, y = 0;
 			const move = (m: PointerEvent) => {
-				const x = Math.min(Math.max(m.clientX - dx, 0), innerWidth - box.width);
-				const y = Math.min(Math.max(m.clientY - dy, 0), innerHeight - box.height);
-				win.style.left = `${x}px`; win.style.top = `${y}px`; win.style.transform = 'none';
+				x = Math.min(Math.max(m.clientX - dx, 0), innerWidth - box.width) - box.left;
+				y = Math.min(Math.max(m.clientY - dy, 0), innerHeight - box.height) - box.top;
+				frame ||= requestAnimationFrame(() => { frame = 0; win.style.transform = `translate(${x}px, ${y}px)`; });
 			};
-			const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up); };
+			const up = () => {
+				cancelAnimationFrame(frame);
+				// the move becomes the position, so the next drag starts from it
+				win.style.left = `${box.left + x}px`; win.style.top = `${box.top + y}px`; win.style.transform = 'none';
+				head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up);
+			};
 			head.addEventListener('pointermove', move);
 			head.addEventListener('pointerup', up);
 			head.addEventListener('pointercancel', up);

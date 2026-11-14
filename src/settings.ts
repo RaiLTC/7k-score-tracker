@@ -3,9 +3,9 @@
 
 import { createSettings, parseHotkey } from '@oss-idle/addon-sdk';
 
-export type View = 'plays' | 'best';
+export type View = 'plays' | 'best' | 'skills';
 export type Unit = 'h' | 'm' | 's';
-export type ButtonStyle = 'outlined' | 'tinted' | 'filled';
+export type ButtonStyle = 'solid' | 'outlined' | 'tinted';
 export type SkillsAs = 'bar' | 'top';
 export type AccentId = 'neutral' | 'cold' | 'warming' | 'peak' | 'pushing' | 'fatigued' | 'osu' | 'custom';
 export type Settings = {
@@ -17,7 +17,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 };
 
 export const DEFAULTS: Settings = {
-	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'outlined', skillsAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
+	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -32,9 +32,9 @@ export const loadSettings = (): Settings => {
 	try { parseHotkey(s.hotkey); hotkey = s.hotkey; } catch { /* the default */ }
 	return {
 		hotkey,
-		view: oneOf(s.view, ['plays', 'best'], DEFAULTS.view),
+		view: oneOf(s.view, ['plays', 'best', 'skills'], DEFAULTS.view),
 		unit: oneOf(s.unit, ['h', 'm', 's'], DEFAULTS.unit),
-		buttons: oneOf(s.buttons, ['outlined', 'tinted', 'filled'], DEFAULTS.buttons),
+		buttons: oneOf(s.buttons, ['solid', 'outlined', 'tinted'], DEFAULTS.buttons),
 		skillsAs: oneOf(s.skillsAs, ['bar', 'top'], DEFAULTS.skillsAs),
 		accent: oneOf(s.accent, [...Object.keys(ACCENTS) as AccentId[], 'custom'], DEFAULTS.accent),
 		customAccent: HEX.test(s.customAccent) ? s.customAccent : DEFAULTS.customAccent,

@@ -6,6 +6,7 @@ Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), w
 
 - **Recent plays:** your latest 7K plays: when, the map, rate and mods, XP, and which skills it trained.
 - **Most effective maps:** every 7K map you've played, ranked by XP per minute at the rate you played it.
+- **Skills:** for each skill, the 5 maps that gave it the most XP. Click a skill to open it.
 - **Click any play or map** to see its total XP and the XP per skill.
 
 ## What it reads, and from where

@@ -36,8 +36,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* the Button style setting */
 .window[data-buttons='tinted'] .btn { border: 0; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .window[data-buttons='tinted'] .btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
-.window[data-buttons='filled'] .btn { border: 0; background: var(--line); }
-.window[data-buttons='filled'] .btn:hover { background: #3a3b45; }
+.window[data-buttons='solid'] .btn { border: 0; color: var(--on-accent); background: var(--accent); font-weight: 500; }
+.window[data-buttons='solid'] .btn:hover { background: color-mix(in srgb, var(--accent) 85%, white); }
 .close { width: 28px; height: 28px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 16px; }
 .close:hover { color: var(--text); background: var(--line); }
 
@@ -58,27 +58,27 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .list::-webkit-scrollbar-thumb { background: #3a3b45; border-radius: 3px; }
 
 .row {
-	display: grid; gap: 14px; align-items: center; min-height: 44px; padding: 0 14px; border-top: 0.5px solid var(--line);
+	display: grid; gap: 10px; align-items: center; min-height: 44px; padding: 0 14px; border-top: 0.5px solid var(--line);
 	content-visibility: auto; contain-intrinsic-size: auto 44px;
 }
 .row.head-row { min-height: 0; padding: 0 14px 6px; border-top: 0; color: var(--muted); font-size: 11px; }
 .row[role='button'] { cursor: pointer; }
 .row[role='button']:hover, .row[aria-expanded='true'], .row[aria-expanded='true'] + .detail { background: var(--hover); }
 .row[role='button'][aria-expanded='true'] { border-bottom: 0; }
-.plays .row { grid-template-columns: 64px minmax(0, 1fr) 90px 64px 110px; }
-.best .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
-/* numbers sit right, under their right-aligned headings */
-.best .row > :nth-child(n+3):nth-child(-n+6), .plays .row > :nth-child(4) { text-align: right; }
+.plays .row { grid-template-columns: 64px minmax(0, 1fr) 40px 64px 110px; }
+/* Most effective maps and the Skills tab share columns, so switching between them nothing moves */
+.best .row, .by-skill .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
+/* numbers sit centred in their columns, under centred headings */
+.best .row > :nth-child(n+3):nth-child(-n+6), .plays .row > :nth-child(3), .plays .row > :nth-child(4) { text-align: center; }
 .map { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .map span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .skills { display: flex; height: 8px; overflow: hidden; background: var(--line); border-radius: 3px; }
 
 /* a row's XP per skill, under it */
 .detail { padding: 4px 14px 12px; }
-
 .detail-label { padding-bottom: 4px; }
 .skill-line.total { font-weight: 500; border-bottom: 0.5px solid var(--line); margin-bottom: 2px; }
-.skill-line { display: grid; gap: 14px; align-items: center; min-height: 24px; }
+.skill-line { display: grid; gap: 10px; align-items: center; min-height: 24px; }
 .share { height: 6px; overflow: hidden; background: var(--line); border-radius: 3px; }
 .share i { display: block; height: 100%; border-radius: 3px; transform-origin: left; }
 
@@ -94,21 +94,44 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .icon-btn { width: 28px; height: 28px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 15px; }
 .icon-btn:hover, .icon-btn[aria-pressed=true] { color: var(--text); background: var(--line); }
 
-/* the Skills box, and the Top 3 skills column */
+/* the Skills box (which colour is which skill), and the Top skills column */
 .legend { flex: none; padding: 10px 14px; margin-bottom: 10px; }
 .legend-list, .top-skills { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
 .legend-list span, .top-skills span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.legend-list i, .top-skills i { width: 10px; height: 10px; border-radius: 3px; }
 .top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 4px 0; font-size: 11px; line-height: 1.35; min-width: 0; }
 .top-skills span { overflow: hidden; text-overflow: ellipsis; }
+
+/* settings rows, and the accent swatches */
 .settings-row + .settings-row { border-top: 0.5px solid var(--line); }
 .swatches { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 320px; }
 .swatches button { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; outline: 2px solid transparent; outline-offset: 2px; }
 .swatches button[aria-checked='true'] { outline-color: var(--text); }
 .swatches .custom { background: conic-gradient(#f55, #fd5, #5f5, #5ff, #55f, #f5f, #f55); }
 .swatches input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
-/* names under Map, then the share bar, the XP under the column before Skills, and the share under Skills */
+
+/* a row's breakdown: names under Map, then the share bar, the XP under the column before Skills, and the share under Skills */
 .skill-line { grid-template-columns: 110px minmax(0, 1fr) 64px 110px; }
+.skill-line > .num:nth-child(3) { text-align: center; }
 .skill-line > .num:last-child { text-align: left; }
-.best .detail { padding-left: 50px; }
-.plays .detail { padding-left: 92px; }
+.best .detail { padding-left: 46px; }
+.plays .detail { padding-left: 88px; }
+
+/* each skill's colour */
+.sk-accuracy { background: #ff66aa; } .sk-speed { background: #4f9cf5; } .sk-stamina { background: #5fc3c0; }
+.sk-jacks { background: #f0883e; } .sk-independence { background: #a3e635; } .sk-ln { background: #c084fc; }
+.sk-technical { background: #e8c147; } .sk-focus { background: #7dd3fc; } .sk-sv { background: #fb7185; }
+.sk-memory { background: #94a3b8; }
+.dot { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+
+/* the Skills tab: a block per skill, its 5 best maps */
+.skill-group { border-top: 0.5px solid var(--line); }
+.skill-group[open] { padding-bottom: 8px; }
+.skill-group-head { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; font-weight: 500; cursor: pointer; list-style: none; }
+.skill-group-head::-webkit-details-marker { display: none; }
+.skill-group-head:hover { background: var(--hover); }
+.skill-group-head .muted { margin-left: auto; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the open/closed chevron */
+.skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
+.skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }
+.by-skill .row { min-height: 34px; contain-intrinsic-size: auto 34px; }
+.by-skill .row > :nth-child(n+3) { text-align: center; }

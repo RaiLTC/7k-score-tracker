@@ -1,14 +1,11 @@
 // The tracker's lists as HTML: a row per play or per map, each followed by its (closed) XP-per-skill breakdown.
 // Every text that comes from data is escaped.
 
-import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, num, totalOf, xpText } from './logic.js';
+import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from './logic.js';
 import type { SkillsAs, Unit } from './settings.js';
 import { TEXT } from './text.js';
 
-export const SKILL_COLORS: Record<string, string> = {
-	accuracy: '#ff66aa', speed: '#4f9cf5', stamina: '#5fc3c0', jacks: '#f0883e', independence: '#a3e635',
-	ln: '#c084fc', technical: '#e8c147', focus: '#7dd3fc', sv: '#fb7185', memory: '#94a3b8',
-};
+// Each skill's colour is a class (sk-speed, …) in styles.css; only sizes that come from data are inline.
 
 const esc = (s: unknown): string => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const rateText = (rate: number) => String(num(rate) || 1);
@@ -21,12 +18,14 @@ const rateXp = (perMinute: number, unit: Unit) => {
 	return v < 10 ? v.toFixed(v < 1 ? 2 : 1) : xpText(v);
 };
 
-const mapCell = (info: MapInfo | undefined, beatmapId: number) => {
+/** The map's title, and under it its difficulty (and the play's mods, if any). */
+const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '') => {
 	const title = info ? info.title : TEXT.map(beatmapId);
-	return `<span class="map" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(info?.difficulty ?? '')}</span></span>`;
+	const sub = [info?.difficulty, mods].filter(Boolean).join(' · ');
+	return `<span class="map" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
 };
 
-/** The skills column: a bar of every skill's share, or the (up to) 3 that gave the most XP. */
+/** The skills column: a bar of every skill's share, or the (up to) 2 that gave the most XP. */
 const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const total = totalOf(gains);
 	const parts = total > 0 ? SKILLS_7K.filter((sk) => num(gains[sk]) > 0) : [];
@@ -35,11 +34,11 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).filter((sk, i) => i === 0 || num(gains[sk]) / total >= TOP_SHARE).slice(0, 2);
 		return `<span class="top-skills">${top.map((sk) => `<span>${skillName(sk)}</span>`).join('')}</span>`;
 	}
-	return `<span class="skills">${parts.map((sk) => `<i style="width:${(num(gains[sk]) / total) * 100}%;background:${SKILL_COLORS[sk]}" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
+	return `<span class="skills">${parts.map((sk) => `<i class="sk-${sk}" style="width:${(num(gains[sk]) / total) * 100}%" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
 };
 
 /** The Skills box: which colour is which skill. */
-export const legendHtml = (): string => SKILLS_7K.map((sk) => `<span><i style="background:${SKILL_COLORS[sk]}"></i>${skillName(sk)}</span>`).join('');
+export const legendHtml = (): string => SKILLS_7K.map((sk) => `<span><i class="dot sk-${sk}"></i>${skillName(sk)}</span>`).join('');
 
 /** Under a clicked row: the total, then each skill's XP (for a map, its latest play), biggest first, with its share. */
 const breakdown = (gains: Gains, per = 1, label = '') => {
@@ -47,7 +46,7 @@ const breakdown = (gains: Gains, per = 1, label = '') => {
 	const parts = SKILLS_7K.map((sk): [string, number] => [sk, num(gains[sk]) / per]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 	const lines = parts.map(([sk, v]) => `<div class="skill-line">
 		<span>${skillName(sk)}</span>
-		<span class="share"><i style="transform:scaleX(${total ? v / total : 0});background:${SKILL_COLORS[sk]}"></i></span>
+		<span class="share"><i class="sk-${sk}" style="transform:scaleX(${total ? v / total : 0})"></i></span>
 		<span class="num">${xpText(v)}</span><span class="muted num">${total ? Math.round((v / total) * 100) : 0}%</span>
 	</div>`).join('');
 	const totalLine = total > 0 ? `<div class="skill-line total"><span>${TEXT.total}</span><span></span><span class="num">${xpText(total)}</span><span class="muted num">100%</span></div>` : '';
@@ -63,8 +62,8 @@ export const playsHtml = (plays: Play[], now: number, as: SkillsAs): string => {
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
 		return `<div ${ROW}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
-			${mapCell(p.info, p.beatmapId)}
-			<span>${rateText(p.rate)} <span class="muted">${esc(mods)}</span></span>
+			${mapCell(p.info, p.beatmapId, mods)}
+			<span>${rateText(p.rate)}</span>
 			<span>${p.total > 0 ? xpText(p.total) : '<span class="muted">–</span>'}</span>
 			${skillsCell(p.gains, as)}
 		</div>${breakdown(p.gains)}`;
@@ -85,4 +84,24 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs): string => 
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '')}`).join('')}`;
 };
 
-export const messageHtml = (text: string, error = false) => `<div class="empty${error ? ' error' : ''}">${esc(text)}</div>`;
+/** The Skills tab: for each skill, the maps that gave it the most XP per minute of play. */
+export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
+	const groups = bestBySkill(maps);
+	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
+	const c = TEXT.cols;
+	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
+	return groups.map(({ skill, maps: top }) => `<details class="skill-group">
+		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="muted">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}</span></summary>
+		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span></div>
+		${top.map((x, i) => `<div class="row">
+			<span class="muted">${i + 1}</span>
+			${mapCell(x.map.info, x.map.beatmapId)}
+			<span class="muted">${rateText(x.map.rate)}</span>
+			<span class="muted">${x.map.n}</span>
+			<span>${xpText(x.perPlay)}</span>
+			<span class="strong">${x.perMinute ? rateXp(x.perMinute, unit) : '<span class="muted">–</span>'}</span>
+		</div>`).join('')}
+	</details>`).join('');
+};
+
+export const messageHtml =(text: string, error = false) => `<div class="empty${error ? ' error' : ''}">${esc(text)}</div>`;

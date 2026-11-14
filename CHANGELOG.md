@@ -2,6 +2,19 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.13] - 2026-11-14
+
+### Added
+
+- Skills tab: for each skill, the 5 maps that gave it the most XP (click a skill to open it)
+- Solid buttons in your accent colour, now the default button style
+
+### Changed
+
+- Numbers sit centred in their columns, and columns are closer together
+- Mods show under the map name
+- Your lists stay up while Refresh loads
+
 ## [0.1.12] - 2026-11-14
 
 ### Added

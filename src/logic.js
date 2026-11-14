@@ -70,3 +70,19 @@ export const agoText = (ms) => {
 	const h = Math.floor(m / 60);
 	return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 };
+
+/**
+ * For each 7K skill, the maps that gave it the most XP per minute of play (each map's average per play); maps with no
+ * known length go after, by XP per play. Skills no map trained are left out.
+ * @param {MapStats[]} maps @param {number} [count]
+ * @returns {{ skill: string, maps: { map: MapStats, perMinute: number, perPlay: number }[] }[]}
+ */
+export const bestBySkill = (maps, count = 5) => SKILLS_7K.map((skill) => ({
+	skill,
+	maps: maps.map((m) => {
+		const perPlay = num(m.gains[skill]) / m.n;
+		return { map: m, perPlay, perMinute: m.perPlay > 0 ? m.perMinute * (perPlay / m.perPlay) : 0 };
+	}).filter((x) => x.perPlay > 0)
+		.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay))
+		.slice(0, count),
+})).filter((s) => s.maps.length > 0);
