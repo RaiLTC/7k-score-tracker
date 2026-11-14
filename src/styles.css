@@ -51,29 +51,33 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px 14px; background: var(--card); border-radius: 10px; }
 .card[hidden], [data-unit-switch][hidden] { display: none; }
 .card-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; }
-.list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+/* the list runs to the card's edges, so a highlighted row does too */
+.list { margin: 0 -14px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 .list::-webkit-scrollbar { width: 6px; }
 .list::-webkit-scrollbar-thumb { background: #3a3b45; border-radius: 3px; }
 
 .row {
-	display: grid; gap: 14px; align-items: center; min-height: 58px; padding: 0 8px; border-top: 0.5px solid var(--line);
-	content-visibility: auto; contain-intrinsic-size: auto 58px;
+	display: grid; gap: 14px; align-items: center; min-height: 44px; padding: 0 14px; border-top: 0.5px solid var(--line);
+	content-visibility: auto; contain-intrinsic-size: auto 44px;
 }
-.row.head-row { min-height: 0; padding: 0 8px 6px; border-top: 0; color: var(--muted); font-size: 11px; }
+.row.head-row { min-height: 0; padding: 0 14px 6px; border-top: 0; color: var(--muted); font-size: 11px; }
 .row[role='button'] { cursor: pointer; }
-.row[role='button']:hover .map > span:first-child { text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+.row[role='button']:hover, .row[aria-expanded='true'], .row[aria-expanded='true'] + .detail { background: var(--hover); }
 .row[role='button'][aria-expanded='true'] { border-bottom: 0; }
-.plays .row { grid-template-columns: 64px minmax(0, 1fr) 80px 60px 190px; }
-.best .row { grid-template-columns: 22px minmax(0, 1fr) 36px 40px 64px 56px 190px; }
+.plays .row { grid-template-columns: 64px minmax(0, 1fr) 90px 64px 110px; }
+.best .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
+/* numbers sit right, under their right-aligned headings */
+.best .row > :nth-child(n+3):nth-child(-n+6), .plays .row > :nth-child(4) { text-align: right; }
 .map { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .map span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .skills { display: flex; height: 8px; overflow: hidden; background: var(--line); border-radius: 3px; }
 
 /* a row's XP per skill, under it */
-.detail { padding: 4px 8px 12px 12px; }
+.detail { padding: 4px 14px 12px; }
+
 .detail-label { padding-bottom: 4px; }
 .skill-line.total { font-weight: 500; border-bottom: 0.5px solid var(--line); margin-bottom: 2px; }
-.skill-line { display: grid; grid-template-columns: 110px minmax(0, 1fr) 56px 40px; gap: 12px; align-items: center; min-height: 24px; }
+.skill-line { display: grid; gap: 14px; align-items: center; min-height: 24px; }
 .share { height: 6px; overflow: hidden; background: var(--line); border-radius: 3px; }
 .share i { display: block; height: 100%; border-radius: 3px; transform-origin: left; }
 
@@ -94,7 +98,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .legend-list, .top-skills { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
 .legend-list span, .top-skills span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .legend-list i, .top-skills i { width: 10px; height: 10px; border-radius: 3px; }
-.top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 6px 0; font-size: 11px; line-height: 1.35; min-width: 0; }
+.top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 4px 0; font-size: 11px; line-height: 1.35; min-width: 0; }
 .top-skills span { overflow: hidden; text-overflow: ellipsis; }
 .settings-row + .settings-row { border-top: 0.5px solid var(--line); }
 .swatches { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 320px; }
@@ -102,3 +106,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .swatches button[aria-checked='true'] { outline-color: var(--text); }
 .swatches .custom { background: conic-gradient(#f55, #fd5, #5f5, #5ff, #55f, #f5f, #f55); }
 .swatches input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+/* names under Map, then the share bar, the XP under the column before Skills, and the share under Skills */
+.skill-line { grid-template-columns: 110px minmax(0, 1fr) 64px 110px; }
+.skill-line > .num:last-child { text-align: left; }
+.best .detail { padding-left: 50px; }
+.plays .detail { padding-left: 92px; }

@@ -2,6 +2,15 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.10] - 2026-11-14
+
+### Changed
+
+- Stats sit on the right, under their headings
+- Top skills: up to 2, in thinner rows
+- Row highlight reaches the card edges, and an open row is highlighted with its breakdown
+- Breakdown lines up with the columns above it
+
 ## [0.1.09] - 2026-11-14
 
 ### Fixed

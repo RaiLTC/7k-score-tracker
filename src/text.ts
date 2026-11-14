@@ -15,7 +15,7 @@ export const TEXT = {
 	buttonStyleHelp: 'How buttons look',
 	buttonStyles: { outlined: 'Outlined', tinted: 'Tinted', filled: 'Filled' },
 	skillsAs: 'Skills column',
-	skillsAsHelp: 'A colour bar of every skill, or up to 3 skills that gave the most XP (15% or more)',
+	skillsAsHelp: 'A colour bar of every skill, or up to 2 skills that gave the most XP (15% or more)',
 	skillsAsOptions: { bar: 'Colour bar', top: 'Top skills' },
 	accent: 'Accent colour',
 	accentHelp: 'Buttons, highlights and the current tab',
