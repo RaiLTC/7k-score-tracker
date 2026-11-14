@@ -1,11 +1,16 @@
 {
   "name": "7k-score-tracker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
   "description": "7K Score Tracker: your recent 7K plays in oss!idle, their XP per skill, and the maps that give you the most XP per minute.",
-  "keywords": ["7k", "xp", "plays", "tracker"],
+  "keywords": [
+    "7k",
+    "xp",
+    "plays",
+    "tracker"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/RaiLTC/7k-tracker.git"
