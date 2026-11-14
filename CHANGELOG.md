@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.05] - 2026-11-14
+
+### Changed
+
+- Top 3 skills show as names only
+
 ## [0.1.04] - 2026-11-14
 
 ### Added
