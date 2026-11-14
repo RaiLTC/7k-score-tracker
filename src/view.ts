@@ -2,27 +2,41 @@
 // Every text that comes from data is escaped.
 
 import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, num, totalOf, xpText } from './logic.js';
+import type { SkillsAs, Unit } from './settings.js';
 import { TEXT } from './text.js';
 
-const SKILL_COLORS: Record<string, string> = {
+export const SKILL_COLORS: Record<string, string> = {
 	accuracy: '#ff66aa', speed: '#4f9cf5', stamina: '#5fc3c0', jacks: '#f0883e', independence: '#a3e635',
 	ln: '#c084fc', technical: '#e8c147', focus: '#7dd3fc', sv: '#fb7185', memory: '#94a3b8',
 };
 
 const esc = (s: unknown): string => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-const rateText = (rate: number) => `×${num(rate) || 1}`;
+const rateText = (rate: number) => String(num(rate) || 1);
 const skillName = (sk: string) => TEXT.skills[sk] ?? sk;
+const PER_MINUTE: Record<Unit, number> = { h: 60, m: 1, s: 1 / 60 };
+const rateXp = (perMinute: number, unit: Unit) => {
+	const v = perMinute * PER_MINUTE[unit];
+	return v < 10 ? v.toFixed(v < 1 ? 2 : 1) : xpText(v);
+};
 
 const mapCell = (info: MapInfo | undefined, beatmapId: number) => {
 	const title = info ? info.title : TEXT.map(beatmapId);
 	return `<span class="map" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(info?.difficulty ?? '')}</span></span>`;
 };
 
-const skillBar = (gains: Gains) => {
+/** The skills column: a bar of every skill's share, or the (up to) 3 that gave the most XP. */
+const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const total = totalOf(gains);
 	const parts = total > 0 ? SKILLS_7K.filter((sk) => num(gains[sk]) > 0) : [];
+	if (as === 'top') {
+		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).slice(0, 3);
+		return `<span class="top-skills">${top.map((sk) => `<span><i style="background:${SKILL_COLORS[sk]}"></i>${skillName(sk)}</span>`).join('')}</span>`;
+	}
 	return `<span class="skills">${parts.map((sk) => `<i style="width:${(num(gains[sk]) / total) * 100}%;background:${SKILL_COLORS[sk]}" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
 };
+
+/** The Skills box: which colour is which skill. */
+export const legendHtml = (): string => SKILLS_7K.map((sk) => `<span><i style="background:${SKILL_COLORS[sk]}"></i>${skillName(sk)}</span>`).join('');
 
 /** Under a clicked row: the total, then each skill's XP (per play on average for a map), biggest first, with its share. */
 const breakdown = (gains: Gains, per = 1, label = '') => {
@@ -39,7 +53,7 @@ const breakdown = (gains: Gains, per = 1, label = '') => {
 
 const ROW = 'class="row" role="button" tabindex="0" aria-expanded="false"';
 
-export const playsHtml = (plays: Play[], now: number): string => {
+export const playsHtml = (plays: Play[], now: number, as: SkillsAs): string => {
 	if (!plays.length) return `<div class="empty">${TEXT.noPlays}</div>`;
 	const c = TEXT.cols;
 	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${c.skills}</span></div>${plays.map((p) => {
@@ -49,21 +63,22 @@ export const playsHtml = (plays: Play[], now: number): string => {
 			${mapCell(p.info, p.beatmapId)}
 			<span>${rateText(p.rate)} <span class="muted">${esc(mods)}</span></span>
 			<span>${p.total > 0 ? xpText(p.total) : '<span class="muted">–</span>'}</span>
-			${skillBar(p.gains)}
+			${skillsCell(p.gains, as)}
 		</div>${breakdown(p.gains)}`;
 	}).join('')}`;
 };
 
-export const bestHtml = (maps: MapStats[]): string => {
+export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs): string => {
 	if (!maps.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols;
-	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perMinute}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${ROW}>
+	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${ROW}>
 		<span class="muted">${i + 1}</span>
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
-		<span class="muted">×${m.n}</span>
-		<span class="strong">${m.perMinute ? xpText(m.perMinute) : '<span class="muted">–</span>'}</span>
-		${skillBar(m.gains)}
+		<span class="muted">${m.n}</span>
+		<span>${xpText(m.xp)}</span>
+		<span class="strong">${m.perMinute ? rateXp(m.perMinute, unit) : '<span class="muted">–</span>'}</span>
+		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.gains, m.n, m.n > 1 ? TEXT.average(m.n) : '')}`).join('')}`;
 };
 

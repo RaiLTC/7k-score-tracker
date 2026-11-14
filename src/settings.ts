@@ -4,19 +4,45 @@
 import { createSettings, parseHotkey } from '@oss-idle/addon-sdk';
 
 export type View = 'plays' | 'best';
-export type Settings = { hotkey: string, view: View };
+export type Unit = 'h' | 'm' | 's';
+export type ButtonStyle = 'outlined' | 'tinted' | 'filled';
+export type SkillsAs = 'bar' | 'top';
+export type AccentId = 'neutral' | 'cold' | 'warming' | 'peak' | 'pushing' | 'fatigued' | 'osu' | 'custom';
+export type Settings = {
+	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, accent: AccentId, customAccent: string,
+};
 
-export const DEFAULTS: Settings = { hotkey: 'Alt+Shift+S', view: 'plays' };
+export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
+	neutral: '#d6d6dc', cold: '#4f9cf5', warming: '#5fc3c0', peak: '#e8c147', pushing: '#f0883e', fatigued: '#c084fc', osu: '#ff66aa',
+};
+
+export const DEFAULTS: Settings = {
+	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'outlined', skillsAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
+};
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
 
-/** Saved settings, kept valid: a broken hotkey falls back to the default. */
+const oneOf = <T extends string>(v: unknown, all: readonly T[], fallback: T): T => (all.includes(v as T) ? v as T : fallback);
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Saved settings, kept valid: anything broken falls back to its default. */
 export const loadSettings = (): Settings => {
 	const s = settingsStore.load();
 	let hotkey = DEFAULTS.hotkey;
 	try { parseHotkey(s.hotkey); hotkey = s.hotkey; } catch { /* the default */ }
-	return { hotkey, view: s.view === 'best' ? 'best' : 'plays' };
+	return {
+		hotkey,
+		view: oneOf(s.view, ['plays', 'best'], DEFAULTS.view),
+		unit: oneOf(s.unit, ['h', 'm', 's'], DEFAULTS.unit),
+		buttons: oneOf(s.buttons, ['outlined', 'tinted', 'filled'], DEFAULTS.buttons),
+		skillsAs: oneOf(s.skillsAs, ['bar', 'top'], DEFAULTS.skillsAs),
+		accent: oneOf(s.accent, [...Object.keys(ACCENTS) as AccentId[], 'custom'], DEFAULTS.accent),
+		customAccent: HEX.test(s.customAccent) ? s.customAccent : DEFAULTS.customAccent,
+	};
 };
+
+/** The accent as a colour. */
+export const accentOf = (s: Settings): string => (s.accent === 'custom' ? s.customAccent : ACCENTS[s.accent]);
 
 /** A key press as a hotkey ("Alt+Shift+S"), or null for a lone modifier. It needs Ctrl, Alt or Meta, so it can't
  *  take a key the player types or plays with. */

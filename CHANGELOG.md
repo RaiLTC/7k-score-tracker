@@ -2,6 +2,18 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.04] - 2026-11-14
+
+### Added
+
+- Skills box with each skill's colour, above Most effective maps
+- Total XP column, and XP per hour, minute or second
+- Settings: accent colour, button style, and the Skills column as a colour bar or the top 3 skills
+
+### Changed
+
+- Rate and plays show as plain numbers
+
 ## [0.1.03] - 2026-11-14
 
 ### Added

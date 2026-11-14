@@ -2,7 +2,7 @@
 
 An [oss!idle](https://oss.idle.rhythmgamers.net) add-on for 7K: your recent plays, the XP each one gave per skill, and the maps that give you the most XP per minute.
 
-Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear). Esc closes it.
+Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), where you can also pick the accent colour, the button style and how skills show. Esc closes it.
 
 - **Recent plays:** your latest 7K plays: when, the map, rate and mods, XP, and which skills it trained.
 - **Most effective maps:** every 7K map you've played, ranked by XP per minute at the rate you played it.
