@@ -30,7 +30,7 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const parts = total > 0 ? SKILLS_7K.filter((sk) => num(gains[sk]) > 0) : [];
 	if (as === 'top') {
 		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).slice(0, 3);
-		return `<span class="top-skills">${top.map((sk) => `<span><i style="background:${SKILL_COLORS[sk]}"></i>${skillName(sk)}</span>`).join('')}</span>`;
+		return `<span class="top-skills">${top.map((sk) => `<span>${skillName(sk)}</span>`).join('')}</span>`;
 	}
 	return `<span class="skills">${parts.map((sk) => `<i style="width:${(num(gains[sk]) / total) * 100}%;background:${SKILL_COLORS[sk]}" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
 };
