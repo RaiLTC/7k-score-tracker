@@ -2,6 +2,17 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.15] - 2026-11-14
+
+### Added
+
+- Updates itself while open: new plays and their XP show up within 2 seconds, and open rows stay open
+- An arrow next to a map's XP when it gave clearly less (↓) or more (↑) than your play before
+
+### Fixed
+
+- A play saved without XP no longer shows as 0 XP or No XP on its map, and doesn't lower its averages
+
 ## [0.1.14] - 2026-11-14
 
 ### Changed

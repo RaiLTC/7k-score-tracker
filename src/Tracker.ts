@@ -3,7 +3,7 @@
 // window is closed, and while it's open, only clicks and keys do anything.
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
-import { TrackerError, recent7k } from './data.js';
+import { TrackerError, latestMark, recent7k } from './data.js';
 import { type Play, bestMaps } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, settingsStore } from './settings.js';
 import styles from './styles.css';
@@ -12,6 +12,9 @@ import { bestHtml, bySkillHtml, legendHtml, messageHtml, playsHtml } from './vie
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings';
+
+/** How often, while the window is open, it checks for a new play. */
+const POLL_MS = 2000;
 
 // Tabler Icons (MIT): settings, outline
 const GEAR = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></svg>';
@@ -40,6 +43,8 @@ export class Tracker extends Addon {
 	private escape?: () => void;
 	private recording = false;
 	private loading = 0;
+	private poll = 0;
+	private mark = '';
 
 	constructor() {
 		super({ name: TEXT.name });
@@ -119,10 +124,19 @@ export class Tracker extends Addon {
 		let plays: Play[] | null = null;
 		const renderLists = () => {
 			if (!plays) return;
+			// what's open stays open when the lists are drawn again
+			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map((el) => el.dataset.key));
 			playsList.innerHTML = playsHtml(plays, Date.now(), this.settings.skillsAs);
 			const maps = bestMaps(plays);
 			bestList.innerHTML = bestHtml(maps, this.settings.unit, this.settings.skillsAs);
 			skillsList.innerHTML = bySkillHtml(maps, this.settings.unit);
+			if (!open.size) return;
+			for (const el of root.querySelectorAll<HTMLElement>('[data-key]')) {
+				if (!open.has(el.dataset.key)) continue;
+				if (el instanceof HTMLDetailsElement) { el.open = true; continue; }
+				el.setAttribute('aria-expanded', 'true');
+				(el.nextElementSibling as HTMLElement).hidden = false;
+			}
 		};
 
 		const stopRecording = () => {
@@ -152,6 +166,8 @@ export class Tracker extends Addon {
 			if (!plays) playsList.innerHTML = bestList.innerHTML = skillsList.innerHTML = messageHtml(TEXT.loading);
 			try {
 				const api = (this.host as { api?: Api } | undefined)?.api ?? (globalThis as { ossIdle?: { api?: Api } }).ossIdle?.api;
+				// the mark first: anything saved while reading shows up on the next check
+				this.mark = await latestMark().catch(() => this.mark);
 				const result = await recent7k(api);
 				if (ticket !== this.loading) return;
 				plays = result;
@@ -171,8 +187,16 @@ export class Tracker extends Addon {
 			// Esc is taken only while the window is open: closed, it's the game's. While recording, it cancels.
 			this.escape?.();
 			this.escape = open ? this.hotkeys.register('Escape', () => { if (this.recording) stopRecording(); else setOpen(false); }, { allowInText: true }) : undefined;
-			if (open) void load(); else stopRecording();
+			// while open, a tiny check every 2 seconds: the lists are read again only when a play or its XP was saved
+			window.clearInterval(this.poll);
+			if (open) {
+				void load();
+				this.poll = window.setInterval(() => void latestMark().then((m) => {
+					if (m && m !== this.mark) void load();
+				}, () => undefined), POLL_MS);
+			} else stopRecording();
 		};
+		this.own(() => window.clearInterval(this.poll));
 
 		// the shortcut: registered from the setting, and again whenever it changes
 		const bindToggle = () => {

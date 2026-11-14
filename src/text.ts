@@ -35,6 +35,8 @@ export const TEXT = {
 	noBest: 'No 7K plays with XP yet.',
 	noXp: 'No XP',
 	latest: 'Your latest play on it',
+	trendDown: (pct: number) => `${pct}% less XP than your play before`,
+	trendUp: (pct: number) => `${pct}% more XP than your play before`,
 	map: (id: number) => `Map ${id}`,
 	cols: {
 		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', skills: 'Skills',

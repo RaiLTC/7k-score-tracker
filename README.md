@@ -8,6 +8,7 @@ Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), w
 - **Most effective maps:** every 7K map you've played, ranked by XP per minute at the rate you played it.
 - **Skills:** for each skill, the 5 maps that gave it the most XP. Click a skill to open it.
 - **Click any play or map** to see its total XP and the XP per skill.
+- **Updates itself** while it's open: a new play, and its XP, show up within 2 seconds. An arrow next to a map's XP shows when it gave clearly less (↓) or more (↑) than your play before.
 
 ## What it reads, and from where
 

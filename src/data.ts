@@ -115,6 +115,12 @@ const rowsOf = async (sql: string, params: SqlValue[]): Promise<Record<string, S
 	return gameDb.select(sql, params);
 };
 
+/** A cheap mark of the newest play and the newest XP saved: when it changes, there is something new to show. */
+export const latestMark = async (): Promise<string> => {
+	const rows = await rowsOf('SELECT (SELECT MAX(id) FROM score) AS s, (SELECT MAX(scoreId) FROM score_xp) AS x', []);
+	return rows?.[0] ? `${String(rows[0].s)}:${String(rows[0].x)}` : '';
+};
+
 /** Your recent 7K plays, newest first, each with its XP per skill and its map. */
 export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	if (!characterId) {

@@ -10,7 +10,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
  * @typedef {Record<string, number>} Gains  XP per skill
  * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number }} MapInfo
  * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number }} Play
- * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, perPlay: number, perMinute: number }} MapStats
+ * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, nXp: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, prevAt: number, prevXp: number, perPlay: number, perMinute: number }} MapStats
  */
 
 /** @param {unknown} v */
@@ -45,17 +45,22 @@ export const bestMaps = (plays) => {
 	for (const p of plays) {
 		const rate = num(p.rate) || 1;
 		const key = `${p.beatmapId}@${rate}`;
-		const m = byMap.get(key) || { beatmapId: p.beatmapId, rate, info: p.info, n: 0, xp: 0, gains: {}, lastAt: -1, last: {}, lastXp: 0 };
+		const m = byMap.get(key) || { beatmapId: p.beatmapId, rate, info: p.info, n: 0, nXp: 0, xp: 0, gains: {}, lastAt: -1, last: {}, lastXp: 0, prevAt: -1, prevXp: 0 };
 		m.n++;
 		m.xp += p.total;
-		// the latest play on it, whatever order the plays come in
-		if (p.playedAt > m.lastAt) { m.lastAt = p.playedAt; m.last = p.gains; m.lastXp = p.total; }
+		// a play saved without XP (not written yet, or none given) counts as played, but not in the averages or as
+		// the latest play
+		if (p.total > 0) m.nXp++;
+		// and the one before it, to show whether the map gives less XP than it did
+		if (p.total > 0 && p.playedAt > m.lastAt) {
+			m.prevAt = m.lastAt; m.prevXp = m.lastXp; m.lastAt = p.playedAt; m.last = p.gains; m.lastXp = p.total;
+		} else if (p.total > 0 && p.playedAt > m.prevAt) { m.prevAt = p.playedAt; m.prevXp = p.total; }
 		for (const sk of SKILLS_7K) m.gains[sk] = (m.gains[sk] || 0) + num(p.gains[sk]);
 		byMap.set(key, m);
 	}
 	return [...byMap.values()].filter((m) => m.xp > 0).map((m) => {
 		const minutes = m.info && m.info.lengthSec > 0 ? m.info.lengthSec / m.rate / 60 : 0;
-		return { ...m, perPlay: m.xp / m.n, perMinute: minutes ? m.xp / m.n / minutes : 0 };
+		return { ...m, perPlay: m.xp / m.nXp, perMinute: minutes ? m.xp / m.nXp / minutes : 0 };
 	}).sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay));
 };
 
@@ -80,7 +85,7 @@ export const agoText = (ms) => {
 export const bestBySkill = (maps, count = 5) => SKILLS_7K.map((skill) => ({
 	skill,
 	maps: maps.map((m) => {
-		const perPlay = num(m.gains[skill]) / m.n;
+		const perPlay = num(m.gains[skill]) / m.nXp;
 		return { map: m, perPlay, perMinute: m.perPlay > 0 ? m.perMinute * (perPlay / m.perPlay) : 0 };
 	}).filter((x) => x.perPlay > 0)
 		.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay))

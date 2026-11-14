@@ -53,14 +53,26 @@ const breakdown = (gains: Gains, per = 1, label = '') => {
 	return `<div class="detail" hidden>${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${totalLine}${lines || `<div class="muted">${TEXT.noXp}</div>`}</div>`;
 };
 
-const ROW = 'class="row" role="button" tabindex="0" aria-expanded="false"';
+/** A clickable row; its key lets an open row stay open when the list is drawn again. */
+const row = (key: string) => `class="row" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"`;
+
+/** Next to a map's latest XP: an arrow when it gave clearly less (or more) than the play before, 5% or more. */
+const TREND_MIN = 0.05;
+const trend = (latest: number, previous: number) => {
+	if (previous <= 0) return '';
+	const change = (latest - previous) / previous;
+	if (Math.abs(change) < TREND_MIN) return '';
+	const pct = Math.round(Math.abs(change) * 100);
+	const [cls, arrow, text] = change < 0 ? ['down', '↓', TEXT.trendDown(pct)] : ['up', '↑', TEXT.trendUp(pct)];
+	return ` <span class="trend ${cls}" title="${text}" aria-label="${text}">${arrow}</span>`;
+};
 
 export const playsHtml = (plays: Play[], now: number, as: SkillsAs): string => {
 	if (!plays.length) return `<div class="empty">${TEXT.noPlays}</div>`;
 	const c = TEXT.cols;
 	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${c.skills}</span></div>${plays.map((p) => {
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
-		return `<div ${ROW}>
+		return `<div ${row(`${p.playedAt}:${p.beatmapId}`)}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
 			${mapCell(p.info, p.beatmapId, mods)}
 			<span>${rateText(p.rate)}</span>
@@ -73,12 +85,12 @@ export const playsHtml = (plays: Play[], now: number, as: SkillsAs): string => {
 export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs): string => {
 	if (!maps.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols;
-	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${ROW}>
+	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`)}>
 		<span class="muted">${i + 1}</span>
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
-		<span>${xpText(m.lastXp)}</span>
+		<span>${xpText(m.lastXp)}${trend(m.lastXp, m.prevXp)}</span>
 		<span class="strong">${m.perMinute ? rateXp(m.perMinute, unit) : '<span class="muted">–</span>'}</span>
 		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '')}`).join('')}`;
@@ -90,7 +102,7 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols;
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
-	return groups.map(({ skill, maps: top }) => `<details class="skill-group">
+	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="muted">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}</span></summary>
 		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span></div>
 		${top.map((x, i) => `<div class="row">

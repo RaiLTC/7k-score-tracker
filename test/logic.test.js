@@ -42,3 +42,16 @@ test('numbers and times read as players expect', () => {
 	assert.equal(agoText(30_000), 'just now');
 	assert.equal(agoText(3 * 3600e3), '3h ago');
 });
+
+test('a play saved without XP is counted, but never the latest play or part of an average', () => {
+	const at = (p, t) => ({ ...p, playedAt: t });
+	const [m] = bestMaps([
+		at(play(1, {}, map(7, 60)), 3),               // newest, no XP yet
+		at(play(1, { speed: 200 }, map(7, 60)), 2),
+		at(play(1, { speed: 100 }, map(7, 60)), 1),
+	]);
+	assert.equal(m.n, 3);
+	assert.equal(m.lastXp, 200);
+	assert.equal(m.perPlay, 150);
+	assert.equal(m.prevXp, 100);
+});
