@@ -41,7 +41,7 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 /** The Skills box: which colour is which skill. */
 export const legendHtml = (): string => SKILLS_7K.map((sk) => `<span><i style="background:${SKILL_COLORS[sk]}"></i>${skillName(sk)}</span>`).join('');
 
-/** Under a clicked row: the total, then each skill's XP (per play on average for a map), biggest first, with its share. */
+/** Under a clicked row: the total, then each skill's XP (for a map, its latest play), biggest first, with its share. */
 const breakdown = (gains: Gains, per = 1, label = '') => {
 	const total = totalOf(gains) / per;
 	const parts = SKILLS_7K.map((sk): [string, number] => [sk, num(gains[sk]) / per]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
@@ -79,10 +79,10 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs): string => 
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
-		<span>${xpText(m.xp)}</span>
+		<span>${xpText(m.lastXp)}</span>
 		<span class="strong">${m.perMinute ? rateXp(m.perMinute, unit) : '<span class="muted">–</span>'}</span>
 		${skillsCell(m.gains, as)}
-	</div>${breakdown(m.gains, m.n, m.n > 1 ? TEXT.average(m.n) : '')}`).join('')}`;
+	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '')}`).join('')}`;
 };
 
 export const messageHtml = (text: string, error = false) => `<div class="empty${error ? ' error' : ''}">${esc(text)}</div>`;

@@ -32,7 +32,7 @@ export const TEXT = {
 	noPlays: 'No 7K plays yet.',
 	noBest: 'No 7K plays with XP yet.',
 	noXp: 'No XP',
-	average: (n: number) => `Average of ${n} plays`,
+	latest: 'Your latest play on it',
 	map: (id: number) => `Map ${id}`,
 	cols: {
 		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', skills: 'Skills',

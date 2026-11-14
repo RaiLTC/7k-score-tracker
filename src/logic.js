@@ -10,7 +10,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
  * @typedef {Record<string, number>} Gains  XP per skill
  * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number }} MapInfo
  * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number }} Play
- * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, xp: number, gains: Gains, perPlay: number, perMinute: number }} MapStats
+ * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, perPlay: number, perMinute: number }} MapStats
  */
 
 /** @param {unknown} v */
@@ -45,9 +45,11 @@ export const bestMaps = (plays) => {
 	for (const p of plays) {
 		const rate = num(p.rate) || 1;
 		const key = `${p.beatmapId}@${rate}`;
-		const m = byMap.get(key) || { beatmapId: p.beatmapId, rate, info: p.info, n: 0, xp: 0, gains: {} };
+		const m = byMap.get(key) || { beatmapId: p.beatmapId, rate, info: p.info, n: 0, xp: 0, gains: {}, lastAt: -1, last: {}, lastXp: 0 };
 		m.n++;
 		m.xp += p.total;
+		// the latest play on it, whatever order the plays come in
+		if (p.playedAt > m.lastAt) { m.lastAt = p.playedAt; m.last = p.gains; m.lastXp = p.total; }
 		for (const sk of SKILLS_7K) m.gains[sk] = (m.gains[sk] || 0) + num(p.gains[sk]);
 		byMap.set(key, m);
 	}
