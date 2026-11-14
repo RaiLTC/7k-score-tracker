@@ -10,7 +10,7 @@ const SKILL_COLORS: Record<string, string> = {
 };
 
 const esc = (s: unknown): string => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-const rateText = (rate: number) => `${num(rate) || 1}×`;
+const rateText = (rate: number) => `×${num(rate) || 1}`;
 const skillName = (sk: string) => TEXT.skills[sk] ?? sk;
 
 const mapCell = (info: MapInfo | undefined, beatmapId: number) => {
@@ -24,7 +24,7 @@ const skillBar = (gains: Gains) => {
 	return `<span class="skills">${parts.map((sk) => `<i style="width:${(num(gains[sk]) / total) * 100}%;background:${SKILL_COLORS[sk]}" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
 };
 
-/** Under a clicked row: each skill's XP (per play on average for a map), biggest first, with its share. */
+/** Under a clicked row: the total, then each skill's XP (per play on average for a map), biggest first, with its share. */
 const breakdown = (gains: Gains, per = 1, label = '') => {
 	const total = totalOf(gains) / per;
 	const parts = SKILLS_7K.map((sk): [string, number] => [sk, num(gains[sk]) / per]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
@@ -33,7 +33,8 @@ const breakdown = (gains: Gains, per = 1, label = '') => {
 		<span class="share"><i style="transform:scaleX(${total ? v / total : 0});background:${SKILL_COLORS[sk]}"></i></span>
 		<span class="num">${xpText(v)}</span><span class="muted num">${total ? Math.round((v / total) * 100) : 0}%</span>
 	</div>`).join('');
-	return `<div class="detail" hidden>${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${lines || `<div class="muted">${TEXT.noXp}</div>`}</div>`;
+	const totalLine = total > 0 ? `<div class="skill-line total"><span>${TEXT.total}</span><span></span><span class="num">${xpText(total)}</span><span class="muted num">100%</span></div>` : '';
+	return `<div class="detail" hidden>${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${totalLine}${lines || `<div class="muted">${TEXT.noXp}</div>`}</div>`;
 };
 
 const ROW = 'class="row" role="button" tabindex="0" aria-expanded="false"';
@@ -61,7 +62,7 @@ export const bestHtml = (maps: MapStats[]): string => {
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">×${m.n}</span>
-		<span class="gold">${m.perMinute ? xpText(m.perMinute) : '<span class="muted">–</span>'}</span>
+		<span class="strong">${m.perMinute ? xpText(m.perMinute) : '<span class="muted">–</span>'}</span>
 		${skillBar(m.gains)}
 	</div>${breakdown(m.gains, m.n, m.n > 1 ? TEXT.average(m.n) : '')}`).join('')}`;
 };

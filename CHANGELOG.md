@@ -2,6 +2,18 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.03] - 2026-11-14
+
+### Added
+
+- Settings (the gear): change the shortcut that opens the window
+- Opening a play or a map shows its total XP above the XP per skill
+
+### Changed
+
+- Rates and play counts show with ×
+- Neutral accent colour
+
 ## [0.1.02] - 2026-11-14
 
 ### Changed

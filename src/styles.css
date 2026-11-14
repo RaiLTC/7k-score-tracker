@@ -1,11 +1,12 @@
 /*
  * Rendered inside a shadow root: these rules can't reach the game, and the game's can't reach them.
- * Queue Helper's look: dark cards, muted secondary text, Peak gold as the accent.
+ * Queue Helper's look: dark cards, muted secondary text, and a neutral accent (light grey), so nothing reads as a
+ * stage colour.
  */
 
 :host {
 	--bg: #17181d; --card: #202128; --field: #17181d; --hover: #26272f; --line: #2c2d36; --line-strong: #33343d;
-	--text: #e8e8ec; --muted: #8b8c96; --accent: #e8c147; --accent-soft: rgb(232 193 71 / 18%); --accent-ink: #f1da8f;
+	--text: #e8e8ec; --muted: #8b8c96; --accent: #d6d6dc; --accent-soft: rgb(232 232 236 / 10%); --accent-ink: #e8e8ec;
 	--danger: #e24b4a;
 	font-size: 13px;
 }
@@ -23,7 +24,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .muted { color: var(--muted); font-size: 12px; }
 .error { color: var(--danger); }
-.gold { color: var(--accent); }
+.strong { font-weight: 500; }
 .num { text-align: right; }
 
 .head { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
@@ -65,8 +66,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* a row's XP per skill, under it */
 .detail { padding: 4px 8px 12px 12px; }
 .detail-label { padding-bottom: 4px; }
+.skill-line.total { font-weight: 500; border-bottom: 0.5px solid var(--line); margin-bottom: 2px; }
 .skill-line { display: grid; grid-template-columns: 110px minmax(0, 1fr) 56px 40px; gap: 12px; align-items: center; min-height: 24px; }
 .share { height: 6px; overflow: hidden; background: var(--line); border-radius: 3px; }
 .share i { display: block; height: 100%; border-radius: 3px; transform-origin: left; }
 
 .empty { padding: 28px 0; text-align: center; color: var(--muted); }
+
+/* the settings page */
+.settings-row { display: flex; align-items: center; gap: 16px; min-height: 56px; }
+.settings-row .label { flex: 1; min-width: 0; }
+.settings-row .label .muted { margin-top: 2px; }
+.keybind { min-width: 140px; height: 32px; padding: 0 14px; background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; }
+.keybind:hover { border-color: #4a4b55; }
+.keybind.recording { border-color: var(--accent); color: var(--muted); }
+.icon-btn { width: 28px; height: 28px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 15px; }
+.icon-btn:hover, .icon-btn[aria-pressed=true] { color: var(--text); background: var(--line); }

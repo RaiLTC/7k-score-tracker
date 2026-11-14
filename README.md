@@ -2,11 +2,11 @@
 
 An [oss!idle](https://oss.idle.rhythmgamers.net) add-on for 7K: your recent plays, the XP each one gave per skill, and the maps that give you the most XP per minute.
 
-Press **Alt+Shift+S** in game. Esc closes it.
+Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear). Esc closes it.
 
 - **Recent plays:** your latest 7K plays: when, the map, rate and mods, XP, and which skills it trained.
 - **Most effective maps:** every 7K map you've played, ranked by XP per minute at the rate you played it.
-- **Click any play or map** to see its XP per skill.
+- **Click any play or map** to see its total XP and the XP per skill.
 
 ## What it reads, and from where
 
@@ -35,6 +35,7 @@ npm run check   # typecheck, lint, test, build
 | `src/Tracker.ts` | The add-on: window, shortcut, loading |
 | `src/data.ts` | Reading plays, and the cached map catalogue |
 | `src/logic.js` | The rules (which plays are 7K, ranking maps), tested in `test/` |
+| `src/settings.ts` | What players can set (the shortcut, the last view) |
 | `src/view.ts` | The lists as HTML |
 | `src/styles.css` | Styles, in the window's shadow root |
 | `src/text.ts` | Every word players see |
