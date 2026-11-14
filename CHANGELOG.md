@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.09] - 2026-11-14
+
+### Fixed
+
+- Hovering a row underlines the map name instead of filling the row
+- Even row heights and spacing
+
 ## [0.1.08] - 2026-11-14
 
 ### Fixed
