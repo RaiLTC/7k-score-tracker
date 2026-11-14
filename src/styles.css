@@ -66,8 +66,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .row[role='button']:hover, .row[aria-expanded='true'], .row[aria-expanded='true'] + .detail { background: var(--hover); }
 .row[role='button'][aria-expanded='true'] { border-bottom: 0; }
 .plays .row { grid-template-columns: 64px minmax(0, 1fr) 40px 64px 110px; }
-/* Most effective maps and the Skills tab share columns, so switching between them nothing moves */
-.best .row, .by-skill .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
+.best .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
 /* numbers sit centred in their columns, under centred headings */
 .best .row > :nth-child(n+3):nth-child(-n+6), .plays .row > :nth-child(3), .plays .row > :nth-child(4) { text-align: center; }
 .map { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
@@ -133,5 +132,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* the open/closed chevron */
 .skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
 .skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }
-.by-skill .row { min-height: 34px; contain-intrinsic-size: auto 34px; }
+/* the same columns as Most effective maps, without Skills; the difficulty sits on the title's line */
+.by-skill .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px; min-height: 34px; contain-intrinsic-size: auto 34px; }
+.map.inline { flex-direction: row; align-items: baseline; gap: 8px; }
+.map.inline span:first-child { flex-shrink: 1; }
+.map.inline span:last-child { flex-shrink: 10; }
 .by-skill .row > :nth-child(n+3) { text-align: center; }

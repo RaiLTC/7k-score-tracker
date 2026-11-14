@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.14] - 2026-11-14
+
+### Changed
+
+- Skills tab: the difficulty sits after the map name, and the columns use the full width
+
 ## [0.1.13] - 2026-11-14
 
 ### Added

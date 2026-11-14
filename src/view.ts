@@ -19,10 +19,10 @@ const rateXp = (perMinute: number, unit: Unit) => {
 };
 
 /** The map's title, and under it its difficulty (and the play's mods, if any). */
-const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '') => {
+const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '', inline = false) => {
 	const title = info ? info.title : TEXT.map(beatmapId);
 	const sub = [info?.difficulty, mods].filter(Boolean).join(' · ');
-	return `<span class="map" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
+	return `<span class="map${inline ? ' inline' : ''}" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
 };
 
 /** The skills column: a bar of every skill's share, or the (up to) 2 that gave the most XP. */
@@ -95,7 +95,7 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span></div>
 		${top.map((x, i) => `<div class="row">
 			<span class="muted">${i + 1}</span>
-			${mapCell(x.map.info, x.map.beatmapId)}
+			${mapCell(x.map.info, x.map.beatmapId, '', true)}
 			<span class="muted">${rateText(x.map.rate)}</span>
 			<span class="muted">${x.map.n}</span>
 			<span>${xpText(x.perPlay)}</span>
