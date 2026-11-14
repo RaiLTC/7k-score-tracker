@@ -2,6 +2,16 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.12] - 2026-11-14
+
+### Added
+
+- Drag the window by its header
+
+### Fixed
+
+- The game's options menu and chat open again: the window only holds keys and focus while it's open
+
 ## [0.1.11] - 2026-11-14
 
 ### Fixed

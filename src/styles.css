@@ -27,7 +27,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .strong { font-weight: 500; }
 .num { text-align: right; }
 
-.head { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
+.head { display: flex; align-items: center; gap: 8px; padding: 2px 4px; cursor: grab; user-select: none; touch-action: none; }
+.head:active { cursor: grabbing; }
 .title { font-size: 14px; font-weight: 500; }
 .spacer { margin-left: auto; }
 .btn { height: 30px; padding: 0 14px; background: none; border: 1px solid #3a3b45; border-radius: 8px; }

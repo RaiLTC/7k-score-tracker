@@ -76,9 +76,14 @@ export class Tracker extends Addon {
 			</div>`;
 		document.body.appendChild(host);
 		this.own(() => host.remove());
-		// keys typed and the wheel turned in the window stay in it, and the game doesn't take focus from it
-		this.own(isolateInput(host));
-		this.own(keepFocus(host));
+		// while open (only then, so the game's menus and chat work when it's closed): keys typed and the wheel turned in
+		// the window stay in it, and the game doesn't take focus from it
+		let guards: (() => void)[] = [];
+		const guard = (on: boolean) => {
+			for (const off of guards) off();
+			guards = on ? [isolateInput(host), keepFocus(host)] : [];
+		};
+		this.own(() => guard(false));
 		this.own(() => this.hotkeys.dispose());
 
 		const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
@@ -146,6 +151,7 @@ export class Tracker extends Addon {
 
 		const setOpen = (open: boolean) => {
 			win.hidden = !open;
+			guard(open);
 			// Esc is taken only while the window is open: closed, it's the game's. While recording, it cancels.
 			this.escape?.();
 			this.escape = open ? this.hotkeys.register('Escape', () => { if (this.recording) stopRecording(); else setOpen(false); }, { allowInText: true }) : undefined;
@@ -180,6 +186,24 @@ export class Tracker extends Addon {
 
 		applyLook();
 		showPage(page);
+
+		// dragged by its header (not its buttons); kept on screen
+		const head = $('.head');
+		this.on(head, 'pointerdown', (e) => {
+			const p = e as PointerEvent;
+			if (p.button !== 0 || (p.target as Element).closest('button')) return;
+			const box = win.getBoundingClientRect(), dx = p.clientX - box.left, dy = p.clientY - box.top;
+			head.setPointerCapture(p.pointerId);
+			const move = (m: PointerEvent) => {
+				const x = Math.min(Math.max(m.clientX - dx, 0), innerWidth - box.width);
+				const y = Math.min(Math.max(m.clientY - dy, 0), innerHeight - box.height);
+				win.style.left = `${x}px`; win.style.top = `${y}px`; win.style.transform = 'none';
+			};
+			const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); head.removeEventListener('pointercancel', up); };
+			head.addEventListener('pointermove', move);
+			head.addEventListener('pointerup', up);
+			head.addEventListener('pointercancel', up);
+		});
 
 		// one listener for the header and settings buttons, one per list for opening a row's breakdown
 		this.on(win, 'click', (e) => {
