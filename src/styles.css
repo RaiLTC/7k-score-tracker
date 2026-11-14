@@ -128,7 +128,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skill-group-head { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; font-weight: 500; cursor: pointer; list-style: none; }
 .skill-group-head::-webkit-details-marker { display: none; }
 .skill-group-head:hover { background: var(--hover); }
-.skill-group-head .muted { margin-left: auto; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the closed line's best map, its difficulty after it in a quieter grey */
+.skill-group-head .best-map { margin-left: auto; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-group-head .diff { margin-left: 8px; color: #6b6c75; }
 /* the open/closed chevron */
 .skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
 .skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }

@@ -103,7 +103,7 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 	const c = TEXT.cols;
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
 	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
-		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="muted">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}</span></summary>
+		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
 		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span></div>
 		${top.map((x, i) => `<div class="row">
 			<span class="muted">${i + 1}</span>
