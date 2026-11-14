@@ -1,0 +1,72 @@
+/*
+ * Rendered inside a shadow root: these rules can't reach the game, and the game's can't reach them.
+ * Queue Helper's look: dark cards, muted secondary text, Peak gold as the accent.
+ */
+
+:host {
+	--bg: #17181d; --card: #202128; --field: #17181d; --hover: #26272f; --line: #2c2d36; --line-strong: #33343d;
+	--text: #e8e8ec; --muted: #8b8c96; --accent: #e8c147; --accent-soft: rgb(232 193 71 / 18%); --accent-ink: #f1da8f;
+	--danger: #e24b4a;
+	font-size: 13px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+
+.window {
+	position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+	width: min(900px, 94vw); height: min(640px, 86vh); display: flex; flex-direction: column; gap: 10px; padding: 12px;
+	font-family: inherit; font-size: 13px; line-height: 1.4; color: var(--text);
+	background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
+	pointer-events: auto;
+}
+.window[hidden] { display: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); font-size: 12px; }
+.error { color: var(--danger); }
+.gold { color: var(--accent); }
+.num { text-align: right; }
+
+.head { display: flex; align-items: center; gap: 8px; padding: 2px 4px; }
+.title { font-size: 14px; font-weight: 500; }
+.spacer { margin-left: auto; }
+.btn { height: 30px; padding: 0 14px; background: none; border: 1px solid #3a3b45; border-radius: 8px; }
+.btn:hover { background: var(--hover); }
+.close { width: 28px; height: 28px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 16px; }
+.close:hover { color: var(--text); background: var(--line); }
+
+/* the view switch: the selected one gets the accent */
+.seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; }
+.seg button { padding: 5px 12px; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 12px; }
+.seg button:hover:not([aria-selected='true']) { color: var(--text); background: var(--hover); }
+.seg button[aria-selected='true'] { color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* one view at a time, full width, so map names have room */
+.panels { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.card { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px 14px; background: var(--card); border-radius: 10px; }
+.card[hidden] { display: none; }
+.card-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; }
+.list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.list::-webkit-scrollbar { width: 6px; }
+.list::-webkit-scrollbar-thumb { background: #3a3b45; border-radius: 3px; }
+
+.row {
+	display: grid; gap: 14px; align-items: center; min-height: 46px; padding-right: 8px; border-top: 0.5px solid var(--line);
+	content-visibility: auto; contain-intrinsic-size: auto 46px;
+}
+.row.head-row { min-height: 0; padding: 0 8px 6px 0; border-top: 0; color: var(--muted); font-size: 11px; }
+.row[role='button'] { cursor: pointer; }
+.row[role='button']:hover { background: var(--hover); }
+.plays .row { grid-template-columns: 64px minmax(0, 1fr) 80px 60px 140px; }
+.best .row { grid-template-columns: 22px minmax(0, 1fr) 48px 56px 70px 140px; }
+.map { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.map span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skills { display: flex; height: 8px; overflow: hidden; background: var(--line); border-radius: 3px; }
+
+/* a row's XP per skill, under it */
+.detail { padding: 4px 8px 12px 12px; }
+.detail-label { padding-bottom: 4px; }
+.skill-line { display: grid; grid-template-columns: 110px minmax(0, 1fr) 56px 40px; gap: 12px; align-items: center; min-height: 24px; }
+.share { height: 6px; overflow: hidden; background: var(--line); border-radius: 3px; }
+.share i { display: block; height: 100%; border-radius: 3px; transform-origin: left; }
+
+.empty { padding: 28px 0; text-align: center; color: var(--muted); }
