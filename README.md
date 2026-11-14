@@ -1,4 +1,4 @@
-# 7K Tracker
+# 7K Score Tracker
 
 An [oss!idle](https://oss.idle.rhythmgamers.net) add-on for 7K: your recent plays, the XP each one gave per skill, and the maps that give you the most XP per minute.
 
@@ -18,7 +18,7 @@ Nothing is sent anywhere else.
 
 ## Install
 
-In game: Options → Add-ons → Browse, and search for 7K Tracker. Or build it yourself (below) and paste `dist/7k-tracker.js` into Options → Add-ons → Manage.
+In game: Options → Add-ons → Browse, and search for 7K Score Tracker. Or build it yourself (below) and paste `dist/7k-score-tracker.js` into Options → Add-ons → Manage.
 
 ## Developing
 

@@ -1,7 +1,7 @@
 // Every word players see, in one place (Google developer style: sentence case, plain words).
 
 export const TEXT = {
-	name: '7K Tracker',
+	name: '7K Score Tracker',
 	close: 'Close',
 	refresh: 'Refresh',
 	views: 'View',

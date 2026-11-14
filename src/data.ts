@@ -13,7 +13,7 @@ const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
 /** How many of your newest plays are read: the tracker shows the 7K ones among them. */
 const READ_PLAYS = 2000;
 const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 20000;
-const CACHE_DB = '7k-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog';
+const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog';
 
 type Api = { me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number } | null | undefined> };
 /** id → [title, difficulty, keys, length in seconds]; when it was fetched, and last tried. */

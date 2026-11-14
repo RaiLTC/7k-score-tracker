@@ -1,8 +1,8 @@
 {
-  "name": "7K Tracker",
+  "name": "7K Score Tracker",
   "license": "AGPL-3.0-only",
   "entry": "src/index.ts",
-  "outfile": "dist/7k-tracker.js",
+  "outfile": "dist/7k-score-tracker.js",
   "gameVersion": "1.5.0.0",
   "types": ["gameplay"]
 }

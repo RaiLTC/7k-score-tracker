@@ -11,7 +11,7 @@ import { bestHtml, messageHtml, playsHtml } from './view.js';
 
 const TOGGLE = 'Alt+Shift+R';
 /** Which view is shown: remembered on this computer (a convenience only, so a failed save changes nothing). */
-const VIEW_KEY = 'oss-idle-addon:7k-tracker:view';
+const VIEW_KEY = 'oss-idle-addon:7k-score-tracker:view';
 type View = 'plays' | 'best';
 
 export class Tracker extends Addon {
@@ -25,7 +25,7 @@ export class Tracker extends Addon {
 
 	protected onMount(): void {
 		const host = document.createElement('div');
-		host.id = '7k-tracker';
+		host.id = '7k-score-tracker';
 		host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:50000;';
 		const root = host.attachShadow({ mode: 'open' });
 		root.innerHTML = `<style>${styles}</style>

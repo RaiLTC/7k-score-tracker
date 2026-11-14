@@ -1,5 +1,5 @@
 /**
- * 7K Tracker for oss!idle: your recent 7K plays, their XP per skill, and the maps that give you the most XP per minute.
+ * 7K Score Tracker for oss!idle: your recent 7K plays, their XP per skill, and the maps that give you the most XP per minute.
  *
  * The game imports this file and calls `mount` / `unmount`. `defineAddon` builds them from the class in Tracker.ts.
  */
