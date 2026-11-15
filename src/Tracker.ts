@@ -275,9 +275,16 @@ export class Tracker extends Addon {
 		this.on(customColor, 'input', () => { this.settings = { ...this.settings, accent: 'custom', customAccent: customColor.value }; applyLook(); });
 		// the number settings: saved once it's a whole number from 1 to 999, else put back
 		for (const input of numbers) {
-			// clicked or tabbed into: the whole number is selected, so typing replaces it
-			this.on(input, 'focus', () => input.select());
-			this.on(input, 'mouseup', (e) => e.preventDefault());
+			// clicked into: the whole number is selected, so typing replaces it (Tab selects it on its own). Not on
+			// every focus: the game takes focus while you type and gets it handed back, which would select it again
+			let selectOnUp = false;
+			this.on(input, 'pointerdown', () => { selectOnUp = root.activeElement !== input; });
+			this.on(input, 'mouseup', (e) => {
+				if (!selectOnUp) return;
+				selectOnUp = false;
+				e.preventDefault();
+				input.select();
+			});
 			this.on(input, 'input', () => { input.value = input.value.replace(/\D/g, ''); });
 			// the game blocks Backspace and Delete before they reach the field: when it has, delete here instead
 			this.on(input, 'keydown', (event) => {
