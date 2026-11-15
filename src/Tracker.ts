@@ -8,7 +8,7 @@ import { type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, s
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
-import { bestHtml, bySkillHtml, legendHtml, listedPlays, messageHtml, playsHtml } from './view.js';
+import { bestHtml, bySkillHtml, legendHtml, listedPlays, messageHtml, playsHtml, showStrainAs } from './view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings';
@@ -101,6 +101,7 @@ export class Tracker extends Addon {
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
 						${settingRow(TEXT.keybind, TEXT.keybindHelp, `<button type="button" class="keybind" data-action="record"></button><button type="button" class="btn" data-action="reset-key">${TEXT.reset}</button>`, ' data-key-help')}
 						${settingRow(TEXT.skillsAs, TEXT.skillsAsHelp, choice('skillsAs', TEXT.skillsAs, TEXT.skillsAsOptions))}
+						${settingRow(TEXT.strainAs, TEXT.strainAsHelp, choice('strainAs', TEXT.strainAs, TEXT.strainAsOptions))}
 						${settingRow(TEXT.recent, TEXT.recentHelp, choice('recent', TEXT.recent, TEXT.recentOptions))}
 						${settingRow(TEXT.recentFor, TEXT.recentForHelp, `<span class="recent-for"><input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.recentFor}" data-number="recentFor">${choice('recentUnit', TEXT.recentFor, TEXT.recentUnits)}</span>`)}
 						${settingRow(TEXT.recentCount, TEXT.recentCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.recentCount}" data-number="recentCount">`)}
@@ -181,6 +182,7 @@ export class Tracker extends Addon {
 			const keyOf = (el: HTMLElement) => `${el.closest<HTMLElement>('[data-list]')?.dataset.list}:${el.dataset.key}`;
 			const open = new Set(lists.flatMap((l) => [...l.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')]).map(keyOf));
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			showStrainAs(s.strainAs);
 			if (page === 'plays') {
 				playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, searching(query) ? TEXT.noMatch : only ? TEXT.noMapPlays(title) : TEXT.noPlays, 0, playsShown, keepPlay());
 				const listed = listedPlays(plays, since, only, keepPlay());
@@ -234,6 +236,7 @@ export class Tracker extends Addon {
 			const s = this.settings, since = Date.now() - recentMs(s);
 			if (playsShown >= listedPlays(plays, since, only, keepPlay()).length) return;
 			const title = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			showStrainAs(s.strainAs);
 			playsList.insertAdjacentHTML('beforeend', playsHtml(plays, Date.now(), s.unit, s.skillsAs, since, TEXT.stale(title), only, '', playsShown, PLAYS_BATCH, keepPlay()));
 			playsShown += PLAYS_BATCH;
 		});
@@ -429,7 +432,7 @@ export class Tracker extends Addon {
 				this.save({ [set]: value } as Partial<Settings>);
 				applyLook();
 				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide';
-				if (['unit', 'skillsAs', 'recentUnit', 'oldOn', 'oldUnit'].includes(set)) renderLists();
+				if (['unit', 'skillsAs', 'strainAs', 'recentUnit', 'oldOn', 'oldUnit'].includes(set)) renderLists();
 				return;
 			}
 			if (accent) {

@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.37] - 2026-11-15
+
+### Changed
+
+- Strain shows the strain bar after each play, in its zone's colour, with the arrows. A setting switches it to the change per minute
+- Strain / length is gone: the game's simulator can't do 7K maps
+
 ## [0.1.36] - 2026-11-15
 
 ### Changed

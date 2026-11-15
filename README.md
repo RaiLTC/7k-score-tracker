@@ -9,7 +9,7 @@ Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), w
 - **Save as playlist:** saves your best maps from the last hour, at their rates, to a playlist in the game.
 - **Skills:** for each skill, the 5 maps that gave it the most XP. Click a skill to open it.
 - **Search** by map name or difficulty, with tags: `length>1m30` (or seconds, `length<90`), `skill:stamina`, `star>=5`.
-- **Strain:** as in Queue Helper. Strain / length: how much of the map strained you, against its length (asked of the game's simulator once, right after the play). Bar: the strain bar after the play, in its zone's colour, with the game's arrows (› straining, ‹ resting). For a map, its latest play. The game keeps no strain per play, so the tracker notes it as plays come in (it keeps checking for new plays while closed); plays from before show –.
+- **Strain:** the strain bar after each play, in its zone's colour as in Queue Helper, with the game's arrows (› straining, ‹ resting). In Settings it can show the strain minutes the play added (+) or rested (−) per minute of the map instead. For a map, its latest play. The game keeps no strain per play, so the tracker notes it as plays come in (it keeps checking for new plays while closed); plays from before show –.
 - **XP per time is coloured** from green (the list's best) through yellow and orange to red (its worst).
 - **Click any play or map** to see its total XP and the XP per skill, and to show only its recent plays.
 - **Updates itself** while it's open: a new play, and its XP, show up within 10 seconds. A map's latest XP is green when it gave more than your play before and red when less, with an arrow when the change is 5% or more.
@@ -19,7 +19,7 @@ Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), w
 - **Your plays:** the game's own database on your computer. Never the server, so it works for guests too.
 - **Map names, key counts and lengths:** the game's map catalogue (`api.oss.idle.rhythmgamers.net`). It's kept on your computer and downloaded again once a day, and right away when you play a map it doesn't know yet (then 1 and 5 minutes later; a map still missing after that isn't asked about again).
 - **Who you are:** the game's API, asked once per game session.
-- **Your strain:** the game's API and simulator, asked once when a new play shows up. What it noted is kept on your computer.
+- **Your strain:** the game's API, asked once when a new play shows up. What it noted is kept on your computer.
 
 Nothing is sent anywhere else.
 

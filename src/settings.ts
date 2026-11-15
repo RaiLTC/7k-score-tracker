@@ -8,12 +8,13 @@ export type View = 'plays' | 'best' | 'skills';
 export type Unit = 'h' | 'm' | 's';
 export type ButtonStyle = 'solid' | 'outlined' | 'tinted';
 export type SkillsAs = 'bar' | 'top';
+export type StrainAs = 'bar' | 'change';
 export type RecentShow = 'show' | 'hide';
 export type RecentUnit = 'm' | 'h';
 export type OnOff = 'off' | 'on';
 export type AccentId = 'neutral' | 'cold' | 'warming' | 'peak' | 'pushing' | 'fatigued' | 'osu' | 'custom';
 export type Settings = {
-	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, accent: AccentId, customAccent: string,
+	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, strainAs: StrainAs, accent: AccentId, customAccent: string,
 	recent: RecentShow, recentFor: number, recentUnit: RecentUnit, recentCount: number, bestCount: number, avgOf: number, avgOfRecent: number,
 	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit,
 	/** Skills hidden in Most effective maps and the recent list: `hidden`, maps that give it the most XP; `removed`,
@@ -28,7 +29,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 };
 
 export const DEFAULTS: Settings = {
-	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
+	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
 	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', hidden: [], removed: [], playlistId: 0,
 };
 
@@ -64,6 +65,7 @@ export const loadSettings = (): Settings => {
 		unit: oneOf(s.unit, ['h', 'm', 's'], DEFAULTS.unit),
 		buttons: oneOf(s.buttons, ['solid', 'outlined', 'tinted'], DEFAULTS.buttons),
 		skillsAs: oneOf(s.skillsAs, ['bar', 'top'], DEFAULTS.skillsAs),
+		strainAs: oneOf(s.strainAs, ['bar', 'change'], DEFAULTS.strainAs),
 		accent: oneOf(s.accent, [...Object.keys(ACCENTS) as AccentId[], 'custom'], DEFAULTS.accent),
 		customAccent: HEX.test(s.customAccent) ? s.customAccent : DEFAULTS.customAccent,
 		recent: oneOf(s.recent, ['show', 'hide'], DEFAULTS.recent),

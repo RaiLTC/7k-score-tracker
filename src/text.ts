@@ -16,6 +16,9 @@ export const TEXT = {
 	skillsAs: 'Skills column',
 	skillsAsHelp: 'All skills as a bar, or your top 2',
 	skillsAsOptions: { bar: 'Colour bar', top: 'Top skills' },
+	strainAs: 'Strain column',
+	strainAsHelp: 'The strain bar after each play, or how much the play changed your strain per minute of the map',
+	strainAsOptions: { bar: 'Bar %', change: 'Change' },
 	accent: 'Accent colour',
 	accentHelp: 'Buttons, highlights and the current tab',
 	accents: { neutral: 'Neutral', cold: 'Cold', warming: 'Warming up', peak: 'Peak', pushing: 'Pushing', fatigued: 'Fatigued', osu: 'osu!', custom: 'Custom' } as Record<string, string>,
@@ -72,11 +75,11 @@ export const TEXT = {
 	trendDown: (pct: number) => `${pct}% less XP than your play before`,
 	trendUp: (pct: number) => `${pct}% more XP than your play before`,
 	map: (id: number) => `Map ${id}`,
-	strainHelp: 'How much of the map strained you, of its length (from the game\'s simulator)',
+	strainHelp: 'Strain minutes gained (+) or rested (−) per minute of the map; › straining, ‹ resting',
 	barHelp: 'The strain bar after the play; › straining, ‹ resting',
 	noStrain: 'Not noted: played before the tracker noted strain, or after a break',
 	cols: {
-		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', strain: 'Strain / length', bar: 'Bar', skills: 'Skills',
+		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', strain: 'Strain', skills: 'Skills',
 		number: '#', plays: 'Plays', totalXp: 'Total XP', perPlay: 'Per play',
 	},
 	skills: {

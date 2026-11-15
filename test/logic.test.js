@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { agoText, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/logic.js';
-import { arrowsOf, restedStrain, strainPerMinute, trendOf } from '../src/strain.js';
+import { arrowsOf, restedStrain, strainPerMinute } from '../src/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
 const map = (keys, lengthSec) => ({ title: 'Song', difficulty: 'Hard', keys, lengthSec });
@@ -118,10 +118,4 @@ test('strain per minute of the map and its arrows', () => {
 	assert.equal(arrowsOf(-0.2), -1);
 	assert.equal(arrowsOf(-0.5), -2);
 	assert.equal(arrowsOf(-1), -3);
-	// the game's arrows from how much of the map strained you: up to 20% rests at the full minute a minute
-	assert.equal(trendOf(2, 0), -3);
-	assert.equal(trendOf(2, 0.4), -3);
-	assert.equal(trendOf(2, 1.2), 1);
-	assert.equal(trendOf(2, 2), 3);
-	assert.equal(trendOf(0, 1), 0);
 });
