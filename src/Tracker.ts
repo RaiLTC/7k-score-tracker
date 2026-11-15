@@ -4,7 +4,7 @@
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { TrackerError, latestMark, recent7k, savePlaylist } from './data.js';
-import { type Play, bestMaps } from './logic.js';
+import { type Play, type Search, bestMaps, fitsSearch, parseSearch, searching } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
@@ -34,6 +34,17 @@ const onAccent = (hex: string): string => {
 const choice = (key: keyof Settings, label: string, options: Record<string, string>) =>
 	`<span class="seg" role="radiogroup" aria-label="${label}">${Object.entries(options).map(([value, text]) =>
 		`<button type="button" role="radio" data-set="${key}" data-value="${value}" aria-checked="false">${text}</button>`).join('')}</span>`;
+
+/** The game blocks Backspace and Delete before they reach a field: when it has, they're done here instead. Whether
+ *  they were. */
+const deleteKeys = (input: HTMLInputElement, e: KeyboardEvent): boolean => {
+	if (!e.defaultPrevented || (e.key !== 'Backspace' && e.key !== 'Delete')) return false;
+	const v = input.value, from = input.selectionStart ?? v.length, to = input.selectionEnd ?? from;
+	const [start, end] = from !== to ? [from, to] : e.key === 'Backspace' ? [Math.max(0, from - 1), from] : [from, Math.min(v.length, from + 1)];
+	input.value = v.slice(0, start) + v.slice(end);
+	input.setSelectionRange(start, start);
+	return true;
+};
 
 const settingRow = (label: string, help: string, control: string, attrs = '') =>
 	`<div class="settings-row"><div class="label"><div>${label}</div>${help || attrs ? `<div class="muted"${attrs}>${help}</div>` : ''}</div>${control}</div>`;
@@ -80,6 +91,7 @@ export class Tracker extends Addon {
 					<button type="button" class="icon-btn" data-action="settings" aria-label="${TEXT.settings}" title="${TEXT.settings}" aria-pressed="false">${GEAR}</button>
 					<button type="button" class="close" data-action="close" aria-label="${TEXT.close}" title="${TEXT.close}">✕</button>
 				</div>
+				<div class="search"><input type="search" class="search-field" placeholder="${TEXT.search}" aria-label="${TEXT.search}" title="${TEXT.searchHelp}" autocomplete="off" spellcheck="false" data-search></div>
 				<div class="panels">
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span><span class="filter" data-filter hidden><span data-filter-name></span><button type="button" class="btn small" data-only="">${TEXT.showAll}</button></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span></div><div class="legend-list">${legendHtml()}</div></section>
@@ -138,6 +150,11 @@ export class Tracker extends Addon {
 		let plays: Play[] | null = null;
 		/** A map whose recent plays alone are shown in Recent plays, or 0 for all. */
 		let only = 0;
+		/** What's typed in the search box; every list shows only what fits it. */
+		let query: Search = parseSearch('');
+		const keepPlay = () => (searching(query) ? (p: Play) => fitsSearch(query, p.info, p.beatmapId, p.rate, p.gains) : undefined);
+		const keepMaps = <T extends { info: Play['info'], beatmapId: number, rate: number, gains: Play['gains'] }>(maps: T[]) =>
+			(searching(query) ? maps.filter((m) => fitsSearch(query, m.info, m.beatmapId, m.rate, m.gains)) : maps);
 		/** Recent plays are drawn 50 at a time; scrolling near the end adds the next 50. */
 		let playsShown = PLAYS_BATCH;
 		/** The tabs drawn from the current plays; the others are drawn when they're opened. */
@@ -156,8 +173,8 @@ export class Tracker extends Addon {
 			const open = new Set(lists.flatMap((l) => [...l.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')]).map(keyOf));
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
 			if (page === 'plays') {
-				playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, only ? TEXT.noMapPlays(title) : TEXT.noPlays, 0, playsShown);
-				const listed = listedPlays(plays, since, only);
+				playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, searching(query) ? TEXT.noMatch : only ? TEXT.noMapPlays(title) : TEXT.noPlays, 0, playsShown, keepPlay());
+				const listed = listedPlays(plays, since, only, keepPlay());
 				count.textContent = listed.length ? `· ${listed.length}` : '';
 				const info = only ? plays.find((p) => p.beatmapId === only)?.info : undefined;
 				$('[data-filter-name]').textContent = only ? `${info ? info.title : TEXT.map(only)} · ${title}` : '';
@@ -165,11 +182,12 @@ export class Tracker extends Addon {
 			} else if (page === 'best') {
 				// with old plays left out, only the newer ones count (a map played only before then drops out)
 				const kept = s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays;
-				bestList.innerHTML = bestHtml(bestMaps(kept, s.avgOf).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
+				const none = searching(query) ? TEXT.noMatch : undefined;
+				bestList.innerHTML = bestHtml(keepMaps(bestMaps(kept, s.avgOf)).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title), none);
 				// the recent list counts only the plays inside the time
-				recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
+				recentList.innerHTML = bestHtml(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity)).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title));
 			} else {
-				skillsList.innerHTML = bySkillHtml(bestMaps(plays, s.avgOf), s.unit);
+				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(plays, s.avgOf)), s.unit);
 			}
 			this.drawnAt = now;
 			if (!open.size) return;
@@ -205,9 +223,9 @@ export class Tracker extends Addon {
 		this.on(playsList, 'scroll', () => {
 			if (!plays || page !== 'plays' || playsList.scrollTop + playsList.clientHeight < playsList.scrollHeight - 300) return;
 			const s = this.settings, since = Date.now() - recentMs(s);
-			if (playsShown >= listedPlays(plays, since, only).length) return;
+			if (playsShown >= listedPlays(plays, since, only, keepPlay()).length) return;
 			const title = TEXT.recentTitle(s.recentFor, s.recentUnit);
-			playsList.insertAdjacentHTML('beforeend', playsHtml(plays, Date.now(), s.unit, s.skillsAs, since, TEXT.stale(title), only, '', playsShown, PLAYS_BATCH));
+			playsList.insertAdjacentHTML('beforeend', playsHtml(plays, Date.now(), s.unit, s.skillsAs, since, TEXT.stale(title), only, '', playsShown, PLAYS_BATCH, keepPlay()));
 			playsShown += PLAYS_BATCH;
 		});
 
@@ -298,6 +316,22 @@ export class Tracker extends Addon {
 		// a custom accent: shown while it's picked, saved when the picker closes
 		this.on(customColor, 'input', () => { this.settings = { ...this.settings, accent: 'custom', customAccent: customColor.value }; applyLook(); });
 		// the number settings: saved once it's a whole number from 1 to 999, else put back
+		// as you type, a moment after the last key; Recent plays starts again at its first 50
+		const searchBox = $<HTMLInputElement>('[data-search]');
+		let searchTimer = 0;
+		this.on(searchBox, 'input', () => {
+			window.clearTimeout(searchTimer);
+			searchTimer = window.setTimeout(() => {
+				query = parseSearch(searchBox.value);
+				playsShown = PLAYS_BATCH;
+				renderLists();
+			}, 150);
+		});
+		this.on(searchBox, 'keydown', (event) => {
+			if (!deleteKeys(searchBox, event as KeyboardEvent)) return;
+			searchBox.dispatchEvent(new Event('input'));
+		});
+		this.own(() => window.clearTimeout(searchTimer));
 		for (const input of numbers) {
 			// clicked into: the whole number is selected, so typing replaces it (Tab selects it on its own). Not on
 			// every focus: the game takes focus while you type and gets it handed back, which would select it again
@@ -310,15 +344,9 @@ export class Tracker extends Addon {
 				input.select();
 			});
 			this.on(input, 'input', () => { input.value = input.value.replace(/\D/g, ''); });
-			// the game blocks Backspace and Delete before they reach the field: when it has, delete here instead
 			this.on(input, 'keydown', (event) => {
-				const e = event as KeyboardEvent;
-				if (e.key === 'Enter') { input.blur(); return; }
-				if (!e.defaultPrevented || (e.key !== 'Backspace' && e.key !== 'Delete')) return;
-				const v = input.value, from = input.selectionStart ?? v.length, to = input.selectionEnd ?? from;
-				const [start, end] = from !== to ? [from, to] : e.key === 'Backspace' ? [Math.max(0, from - 1), from] : [from, Math.min(v.length, from + 1)];
-				input.value = v.slice(0, start) + v.slice(end);
-				input.setSelectionRange(start, start);
+				if ((event as KeyboardEvent).key === 'Enter') { input.blur(); return; }
+				deleteKeys(input, event as KeyboardEvent);
 			});
 			this.on(input, 'change', () => {
 				const n = wholeOf(input.value, NUMBER_MIN[input.dataset.number as typeof NUMBER_SETTINGS[number]]);

@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.30] - 2026-11-15
+
+### Added
+
+- Search bar under the header: map name or difficulty, plus tags like length>1m30, length<90, skill:stamina and star>=5. Works in every tab
+
 ## [0.1.29] - 2026-11-15
 
 ### Added

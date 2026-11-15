@@ -14,12 +14,12 @@ const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
 /** How many of your newest plays are read: the tracker shows the 7K ones among them. */
 const READ_PLAYS = 2000;
 const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 20000;
-const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog';
+const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v2';
 
 type Api = { me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number } | null | undefined> };
 /** id → [title, difficulty, keys, length in seconds]; when it was fetched and last tried; maps it didn't have:
  *  id → [tries, when to try again]. */
-type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number]>, missing?: Record<number, [number, number]> };
+type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number, number]>, missing?: Record<number, [number, number]> };
 /** After the first try for a missing map: wait 1 minute, then 5; then it's unresolved. */
 const RETRY_AFTER = [60e3, 300e3];
 
@@ -71,9 +71,9 @@ const fetchCatalog = async (): Promise<Catalog> => {
 	const walk = (v: unknown): void => {
 		if (!v || typeof v !== 'object') return;
 		if (Array.isArray(v)) { v.forEach(walk); return; }
-		const o = v as { title?: string, versions?: { id?: number, version?: string, keys?: number, total_length?: number }[] };
+		const o = v as { title?: string, versions?: { id?: number, version?: string, keys?: number, total_length?: number, difficulty?: number }[] };
 		if (Array.isArray(o.versions) && o.title) {
-			for (const d of o.versions) if (d && d.id) maps[d.id] = [o.title, d.version ?? '', num(d.keys), num(d.total_length) / 1000];
+			for (const d of o.versions) if (d && d.id) maps[d.id] = [o.title, d.version ?? '', num(d.keys), num(d.total_length) / 1000, num(d.difficulty)];
 		}
 		for (const [k, child] of Object.entries(o)) if (k !== 'versions') walk(child);
 	};
@@ -111,7 +111,7 @@ const mapCatalog = async (played: number[]): Promise<Catalog> => {
 
 const infoOf = (cat: Catalog, id: number): MapInfo | undefined => {
 	const m = cat.maps[id];
-	return m ? { title: m[0], difficulty: m[1], keys: m[2], lengthSec: m[3] } : undefined;
+	return m ? { title: m[0], difficulty: m[1], keys: m[2], lengthSec: m[3], stars: num(m[4]) } : undefined;
 };
 
 // ---- your plays ----

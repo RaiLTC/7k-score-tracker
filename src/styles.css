@@ -60,6 +60,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* one view at a time, full width, so map names have room */
 .panels { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* the search box: under the header, the window's full width */
+.search { display: flex; }
+.search-field { flex: 1; min-width: 0; height: 34px; padding: 0 12px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
+.search-field::placeholder { color: var(--muted); }
+.search-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .card { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px 14px; background: var(--card); border: 1px solid #262833; border-radius: 10px; }
 .card[hidden], [data-unit-switch][hidden], .filter[hidden] { display: none; }
 .card-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; margin-bottom: 6px; }

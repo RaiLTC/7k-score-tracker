@@ -73,10 +73,13 @@ const xpCell = (latest: number, previous: number) =>
 	`<span${previous > 0 && latest !== previous ? ` class="xp-${latest > previous ? 'up' : 'down'}"` : ''}>${xpText(latest)}${trend(latest, previous)}</span>`;
 
 /** The plays Recent plays lists: all of them, or with `only`, just that map's plays since `since`. */
-export const listedPlays = (all: Play[], since: number, only: number): Play[] => (only ? all.filter((p) => p.beatmapId === only && p.playedAt >= since) : all);
+export const listedPlays = (all: Play[], since: number, only: number, keep?: (p: Play) => boolean): Play[] => {
+	const mine = only ? all.filter((p) => p.beatmapId === only && p.playedAt >= since) : all;
+	return keep ? mine.filter(keep) : mine;
+};
 
 /** Recent plays, `count` rows from `start` (the head row with the first batch); a play older than `since` is grayed out. */
-export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, since = 0, staleText = '', only = 0, empty: string = TEXT.noPlays, start = 0, count = Infinity): string => {
+export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, since = 0, staleText = '', only = 0, empty: string = TEXT.noPlays, start = 0, count = Infinity, keep?: (p: Play) => boolean): string => {
 	// each play's XP against the play before it on the same map and rate (newest first, so walk from the oldest)
 	const before = new Map<Play, number>(), last = new Map<string, number>();
 	for (let i = all.length - 1; i >= 0; i--) {
@@ -85,7 +88,7 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 		before.set(p, last.get(key) ?? 0);
 		last.set(key, p.total);
 	}
-	const listed = listedPlays(all, since, only);
+	const listed = listedPlays(all, since, only, keep);
 	if (!listed.length) return start ? '' : `<div class="empty">${esc(empty)}</div>`;
 	const plays = listed.slice(start, start + count);
 	const c = TEXT.cols;

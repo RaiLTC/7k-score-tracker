@@ -67,3 +67,24 @@ test('averages use only the latest plays when limited', () => {
 	assert.equal(m.lastXp, 1100);
 	assert.equal(m.prevXp, 3700);
 });
+
+test('search: words and tags', async () => {
+	const { parseSearch, fitsSearch, lengthOf } = await import('../src/logic.js');
+	assert.equal(lengthOf('1m30'), 90);
+	assert.equal(lengthOf('90'), 90);
+	assert.equal(lengthOf('2m'), 120);
+	const info = { title: 'Clover', difficulty: 'Another', keys: 7, lengthSec: 120, stars: 5.4 };
+	const gains = { stamina: 600, speed: 300, jacks: 100 };
+	const fits = (t, rate = 1) => fitsSearch(parseSearch(t), info, 1, rate, gains);
+	assert.ok(fits('clov'));
+	assert.ok(!fits('freedom'));
+	assert.ok(fits('length>1m30'));
+	assert.ok(!fits('length>1m30', 1.5));
+	assert.ok(fits('skill:stamina'));
+	assert.ok(fits('skill=speed'));
+	assert.ok(!fits('skill:jacks'));
+	assert.ok(fits('star-rating>=5'));
+	assert.ok(fits('stars=5'));
+	assert.ok(!fits('sr>6'));
+	assert.ok(fits('clover length<=2m skill:stam star-rating<6'));
+});

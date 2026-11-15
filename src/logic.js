@@ -8,7 +8,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
 
 /**
  * @typedef {Record<string, number>} Gains  XP per skill
- * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number }} MapInfo
+ * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number, stars?: number }} MapInfo
  * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number }} Play
  * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, nXp: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, prevAt: number, prevXp: number, perPlay: number, perMinute: number }} MapStats
  */
@@ -102,3 +102,82 @@ export const bestBySkill = (maps, count = 5) => SKILLS_7K.map((skill) => ({
 		.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay))
 		.slice(0, count),
 })).filter((s) => s.maps.length > 0);
+
+// ---- search ----
+
+/** @typedef {{ key: 'length' | 'skill' | 'stars', op: string, value: number | string }} SearchTag */
+/** @typedef {{ words: string[], tags: SearchTag[] }} Search */
+
+const TAG_KEYS = /** @type {Record<string, 'length' | 'skill' | 'stars'>} */ ({
+	length: 'length', len: 'length', skill: 'skill', skills: 'skill',
+	'star-rating': 'stars', stars: 'stars', star: 'stars', sr: 'stars',
+});
+
+/** "90" or "90s" → 90, "1m30" or "1m30s" → 90, "2m" → 120; null when it isn't a length. @param {string} v */
+export const lengthOf = (v) => {
+	const m = /^(?:(\d+(?:\.\d+)?)m)?(?:(\d+(?:\.\d+)?)s?)?$/.exec(v.trim().toLowerCase());
+	if (!m || (!m[1] && !m[2])) return null;
+	return num(m[1]) * 60 + num(m[2]);
+};
+
+/**
+ * What's typed in the search box: plain words (each must be in the map's title or difficulty) and tags,
+ * like length>1m30, length<=90, skill:stamina, stars>=5 or star-rating=4.5. A tag that can't be read is a word.
+ * @param {string} text
+ * @returns {Search}
+ */
+export const parseSearch = (text) => {
+	/** @type {Search} */
+	const out = { words: [], tags: [] };
+	for (const part of text.toLowerCase().split(/\s+/).filter(Boolean)) {
+		const m = /^([a-z-]+)(>=|<=|>|<|=|:)(.+)$/.exec(part);
+		const [, name = '', op = '', raw = ''] = m || [];
+		const key = TAG_KEYS[name];
+		if (key) {
+			const value = key === 'length' ? lengthOf(raw) : key === 'stars' ? (Number.isFinite(Number(raw)) ? Number(raw) : null) : raw;
+			if (value !== null && value !== '') { out.tags.push({ key, op: op === ':' ? '=' : op, value }); continue; }
+		}
+		out.words.push(part);
+	}
+	return out;
+};
+
+/** Whether there's anything to search for. @param {Search} q */
+export const searching = (q) => q.words.length > 0 || q.tags.length > 0;
+
+/** The (up to) 2 skills a play or map trained most, 15% of its XP or more (the biggest always). @param {Gains} gains */
+export const topSkills = (gains) => {
+	const total = totalOf(gains);
+	if (!(total > 0)) return [];
+	return SKILLS_7K.filter((sk) => num(gains[sk]) > 0).sort((a, b) => num(gains[b]) - num(gains[a]))
+		.filter((sk, i) => i === 0 || num(gains[sk]) / total >= 0.15).slice(0, 2);
+};
+
+/** @param {number} a @param {string} op @param {number} b @param {number} step */
+const compare = (a, op, b, step) => (op === '>' ? a > b : op === '<' ? a < b : op === '>=' ? a >= b : op === '<=' ? a <= b : a >= b && a < b + step);
+
+/**
+ * Whether a map (at a rate, with the XP it gave per skill) fits the search. Length is at that rate; a map the
+ * catalogue doesn't know fits no length or star tag.
+ * @param {Search} q @param {MapInfo | undefined} info @param {number} beatmapId @param {number} rate @param {Gains} gains
+ */
+export const fitsSearch = (q, info, beatmapId, rate, gains) => {
+	const name = `${info ? `${info.title} ${info.difficulty}` : ''} ${beatmapId}`.toLowerCase();
+	if (!q.words.every((w) => name.includes(w))) return false;
+	for (const t of q.tags) {
+		if (t.key === 'skill') {
+			const want = String(t.value);
+			if (!topSkills(gains).some((sk) => sk.startsWith(want) || (want === 'ln' && sk === 'ln'))) return false;
+		} else if (t.key === 'length') {
+			if (!info || !(info.lengthSec > 0)) return false;
+			// "=" means that whole second
+			if (!compare(Math.round(info.lengthSec / (num(rate) || 1)), t.op, Number(t.value), 1)) return false;
+		} else {
+			if (!info || !(num(info.stars) > 0)) return false;
+			// "=" with a whole number means that star (5 → 5.00 to 5.99), with a decimal that tenth
+			const v = Number(t.value), step = Number.isInteger(v) ? 1 : 0.1;
+			if (!compare(num(info.stars), t.op, v, step)) return false;
+		}
+	}
+	return true;
+};
