@@ -91,15 +91,18 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 	const listed = listedPlays(all, since, only, keep);
 	if (!listed.length) return start ? '' : `<div class="empty">${esc(empty)}</div>`;
 	const plays = listed.slice(start, start + count);
+	// how many times each map was played, at any rate
+	const timesPlayed = new Map<number, number>();
+	for (const p of all) timesPlayed.set(p.beatmapId, (timesPlayed.get(p.beatmapId) ?? 0) + 1);
 	const c = TEXT.cols;
-	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
+	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.plays}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
 		// the play's XP over its length (the map's length at the play's rate)
 		const minutes = p.info && p.info.lengthSec > 0 ? p.info.lengthSec / (num(p.rate) || 1) / 60 : 0;
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
 		return `<div ${row(`${p.playedAt}:${p.beatmapId}`, p.playedAt < since ? staleText : '')}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
-			${mapCell(p.info, p.beatmapId, mods)}
-			<span>${rateText(p.rate)}</span>
+			<span class="map-rate">${mapCell(p.info, p.beatmapId, mods)}<span class="rate-tag">rate x${rateText(p.rate)}</span></span>
+			<span class="muted" title="${TEXT.playsOnMap}">${timesPlayed.get(p.beatmapId) ?? 1}</span>
 			${p.total > 0 ? xpCell(p.total, before.get(p) ?? 0) : '<span><span class="muted">–</span></span>'}
 			<span class="strong">${p.total > 0 && minutes ? rateXp(p.total / minutes, unit) : '<span class="muted">–</span>'}</span>
 			${skillsCell(p.gains, as)}

@@ -84,7 +84,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .row[role='button'] { cursor: pointer; }
 .row[role='button']:hover, .row[aria-expanded='true'], .row[aria-expanded='true'] + .detail { background: var(--hover); }
 .row[role='button'][aria-expanded='true'] { border-bottom: 0; }
-.plays .row { grid-template-columns: 64px minmax(0, 1fr) 40px 64px 64px 110px; }
+.plays .row { grid-template-columns: 64px minmax(0, 1fr) 44px 64px 64px 110px; }
+/* Recent plays: the rate right of the map's name and difficulty */
+.map-rate { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rate-tag { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
 .best .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
 /* numbers sit centred in their columns, under centred headings */
 .best .row > :nth-child(n+3):nth-child(-n+6), .plays .row > :nth-child(n+3):nth-child(-n+5) { text-align: center; }

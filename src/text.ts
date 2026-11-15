@@ -60,6 +60,7 @@ export const TEXT = {
 	search: 'Search..   e.g. clover   length>1m30   length<90   skill:stamina   star>=5',
 	searchHelp: 'Map name or difficulty, and tags: length>1m30 (or length<90, in seconds), skill:stamina, skill!=accuracy (!= means not), star>=5 (or stars, star-rating)',
 	noMatch: 'Nothing matches your search.',
+	playsOnMap: 'Your plays on this map, at any rate',
 	onlyMap: 'Show its recent plays',
 	savePlaylist: 'Save as playlist',
 	savePlaylistHelp: 'Saves these maps, at their rates, to your 7K playlist in the game',

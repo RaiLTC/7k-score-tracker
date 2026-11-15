@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.34] - 2026-11-15
+
+### Changed
+
+- Recent plays: the rate shows as "rate x1" next to the map's name, and a Plays column (your plays on that map) replaces the Rate column
+
 ## [0.1.33] - 2026-11-15
 
 ### Changed
