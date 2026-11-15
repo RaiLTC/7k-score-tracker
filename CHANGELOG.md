@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.22] - 2026-11-15
+
+### Fixed
+
+- A map opened by itself in one list when it was open in the other and a new play came in
+- Show all plays showed in Recent plays even with no map picked
+
 ## [0.1.21] - 2026-11-15
 
 ### Added

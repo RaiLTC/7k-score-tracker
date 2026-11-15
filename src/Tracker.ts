@@ -136,7 +136,9 @@ export class Tracker extends Addon {
 		const renderLists = () => {
 			if (!plays) return;
 			// what's open stays open when the lists are drawn again
-			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map((el) => el.dataset.key));
+			// (per list: the same map can be in two lists, and opening it in one mustn't open the other)
+			const keyOf = (el: HTMLElement) => `${el.closest<HTMLElement>('[data-list]')?.dataset.list}:${el.dataset.key}`;
+			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map(keyOf));
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
 			playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, only ? TEXT.noMapPlays(title) : TEXT.noPlays);
 			const shown = only ? plays.filter((p) => p.beatmapId === only && p.playedAt >= since) : plays;
@@ -152,7 +154,7 @@ export class Tracker extends Addon {
 			skillsList.innerHTML = bySkillHtml(maps, this.settings.unit);
 			if (!open.size) return;
 			for (const el of root.querySelectorAll<HTMLElement>('[data-key]')) {
-				if (!open.has(el.dataset.key)) continue;
+				if (!open.has(keyOf(el))) continue;
 				if (el instanceof HTMLDetailsElement) { el.open = true; continue; }
 				el.setAttribute('aria-expanded', 'true');
 				(el.nextElementSibling as HTMLElement).hidden = false;
