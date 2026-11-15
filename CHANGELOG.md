@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.18] - 2026-11-15
+
+### Fixed
+
+- 7K plays that saved no XP, on maps new to the tracker, didn't show up (often after switching from 4K). The map list is now fetched right away when you play a map it doesn't know, then again 1 and 5 minutes later; a map still missing after that isn't asked about again
+
 ## [0.1.17] - 2026-11-15
 
 ### Added

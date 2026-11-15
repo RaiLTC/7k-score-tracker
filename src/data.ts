@@ -2,7 +2,8 @@
 // to store what they fetch rather than fetching it again):
 // - your plays: the game's own database on this computer (score and score_xp), never the server;
 // - map names, key counts and lengths: the game's map catalogue, kept on this computer (IndexedDB) and fetched again
-//   only once it's a day old, or when you've played a 7K map it doesn't know yet (at most once an hour);
+//   once it's a day old, and right away when you've played a map it doesn't know yet (then again 1 and 5 minutes
+//   later; a map still missing after that is left unresolved and isn't asked about again);
 // - who you are: the game's API, asked once per game session.
 
 import { gameDb, type SqlValue } from '@oss-idle/addon-sdk';
@@ -16,8 +17,11 @@ const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 2
 const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog';
 
 type Api = { me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number } | null | undefined> };
-/** id → [title, difficulty, keys, length in seconds]; when it was fetched, and last tried. */
-type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number]> };
+/** id → [title, difficulty, keys, length in seconds]; when it was fetched and last tried; maps it didn't have:
+ *  id → [tries, when to try again]. */
+type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number]>, missing?: Record<number, [number, number]> };
+/** After the first try for a missing map: wait 1 minute, then 5; then it's unresolved. */
+const RETRY_AFTER = [60e3, 300e3];
 
 export class TrackerError extends Error {}
 
@@ -78,21 +82,30 @@ const fetchCatalog = async (): Promise<Catalog> => {
 	return { at: now, tried: now, maps };
 };
 
-/** The catalogue: from memory, else this computer, fetched again only when it's old or misses a played 7K map. */
-const mapCatalog = async (played7k: number[]): Promise<Catalog> => {
+/** The catalogue: from memory, else this computer, fetched again when it's old or misses a map you played. */
+const mapCatalog = async (played: number[]): Promise<Catalog> => {
 	catalog ??= (await cacheGet<Catalog>(CATALOG_KEY)) ?? { at: 0, tried: 0, maps: {} };
 	const now = Date.now();
-	const old = now - catalog.at > CATALOG_MAX_AGE;
-	const missing = played7k.some((id) => !catalog!.maps[id]) && now - catalog.tried > CATALOG_RETRY;
-	if (old || missing) {
-		try {
-			catalog = await fetchCatalog();
-		} catch {
-			// unreachable: keep what's stored, and don't ask again for an hour
-			catalog = { ...catalog, tried: now };
-		}
-		void cacheSet(CATALOG_KEY, catalog);
+	const missing = { ...catalog.missing };
+	// maps it doesn't know whose next try is due (one that's run out of tries is unresolved)
+	const due = played.filter((id) => !catalog!.maps[id] && (missing[id]?.[0] ?? 0) <= RETRY_AFTER.length && now >= (missing[id]?.[1] ?? 0));
+	const old = now - catalog.at > CATALOG_MAX_AGE && now - catalog.tried > CATALOG_RETRY;
+	if (!old && !due.length) return catalog;
+	let next: Catalog;
+	try {
+		next = await fetchCatalog();
+	} catch {
+		// unreachable: keep what's stored (it counts as a try)
+		next = { ...catalog, tried: now };
 	}
+	for (const id of Object.keys(missing)) if (next.maps[Number(id)]) delete missing[Number(id)];
+	for (const id of due) {
+		if (next.maps[id]) continue;
+		const tries = (missing[id]?.[0] ?? 0) + 1;
+		missing[id] = [tries, now + (RETRY_AFTER[tries - 1] ?? 0)];
+	}
+	catalog = { ...next, missing };
+	void cacheSet(CATALOG_KEY, catalog);
 	return catalog;
 };
 
@@ -135,15 +148,16 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	}
 	if (!id) throw new TrackerError(TEXT.errors.noCharacter);
 	const rows = await rowsOf(
-		`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, x.gains AS gains
+		`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, x.gains AS gains
 		 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
 		 WHERE s.characterId = ? ORDER BY s.playedAt DESC LIMIT ?`, [id, READ_PLAYS]);
 	if (rows === null) throw new TrackerError(TEXT.errors.noDatabase);
 
 	const parsed = rows.map((r) => ({ r, gains: parseGains(r.gains) }));
-	// only a 7K-looking play's map can make the catalogue look out of date (unranked maps are never in it)
-	const played7k = [...new Set(parsed.filter((p) => ONLY_7K.some((sk) => num(p.gains[sk]) > 0)).map((p) => num(p.r.beatmapId)))];
-	const cat = await mapCatalog(played7k);
+	// maps that can make the catalogue look out of date: ranked plays (unranked maps are never in it) that gave 7K
+	// skills, or no XP at all (so their mode is unknown)
+	const played = [...new Set(parsed.filter((p) => !num(p.r.unranked) && (!totalOf(p.gains) || ONLY_7K.some((sk) => num(p.gains[sk]) > 0))).map((p) => num(p.r.beatmapId)))];
+	const cat = await mapCatalog(played);
 	const out: Play[] = [];
 	for (const { r, gains } of parsed) {
 		const info = infoOf(cat, num(r.beatmapId));

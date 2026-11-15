@@ -13,7 +13,7 @@ Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), w
 ## What it reads, and from where
 
 - **Your plays:** the game's own database on your computer. Never the server, so it works for guests too.
-- **Map names, key counts and lengths:** the game's map catalogue (`api.oss.idle.rhythmgamers.net`). It's kept on your computer and downloaded again only once a day, or when you've played a 7K map it doesn't know yet (at most once an hour).
+- **Map names, key counts and lengths:** the game's map catalogue (`api.oss.idle.rhythmgamers.net`). It's kept on your computer and downloaded again once a day, and right away when you play a map it doesn't know yet (then 1 and 5 minutes later; a map still missing after that isn't asked about again).
 - **Who you are:** the game's API, asked once per game session.
 
 Nothing is sent anywhere else.
