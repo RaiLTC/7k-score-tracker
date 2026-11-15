@@ -53,6 +53,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .seg button { padding: 5px 12px; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 12px; }
 .seg button:hover:not([aria-selected='true'], [aria-checked='true']) { color: var(--text); background: var(--hover); }
 .seg button[aria-selected='true'], .seg button[aria-checked='true'] { color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+/* the button style reaches the tabs and switches too: solid fills the selected one, outlined only rings it */
+.window[data-buttons='solid'] .seg button:is([aria-selected='true'], [aria-checked='true']) { color: var(--on-accent); background: var(--accent); box-shadow: none; font-weight: 500; }
+.window[data-buttons='outlined'] .seg button:is([aria-selected='true'], [aria-checked='true']) { color: var(--text); background: none; }
 
 /* one view at a time, full width, so map names have room */
 .panels { flex: 1; min-height: 0; display: flex; flex-direction: column; }

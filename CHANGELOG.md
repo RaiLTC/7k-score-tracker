@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.25] - 2026-11-15
+
+### Changed
+
+- Settings: shorter, plainer wording
+- Button style now applies to the tabs and switches too
+
 ## [0.1.24] - 2026-11-15
 
 ### Changed

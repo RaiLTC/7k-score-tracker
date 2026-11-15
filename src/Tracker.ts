@@ -36,7 +36,7 @@ const choice = (key: keyof Settings, label: string, options: Record<string, stri
 		`<button type="button" role="radio" data-set="${key}" data-value="${value}" aria-checked="false">${text}</button>`).join('')}</span>`;
 
 const settingRow = (label: string, help: string, control: string, attrs = '') =>
-	`<div class="settings-row"><div class="label"><div>${label}</div><div class="muted"${attrs}>${help}</div></div>${control}</div>`;
+	`<div class="settings-row"><div class="label"><div>${label}</div>${help || attrs ? `<div class="muted"${attrs}>${help}</div>` : ''}</div>${control}</div>`;
 
 export class Tracker extends Addon {
 	private readonly hotkeys = new HotkeyManager();
