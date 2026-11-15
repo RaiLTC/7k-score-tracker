@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.23] - 2026-11-15
+
+### Changed
+
+- Checks for new plays every 10 seconds instead of every 2, while the window is open
+
 ## [0.1.22] - 2026-11-15
 
 ### Fixed

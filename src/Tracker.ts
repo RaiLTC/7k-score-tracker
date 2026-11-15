@@ -14,7 +14,7 @@ type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings';
 
 /** How often, while the window is open, it checks for a new play. */
-const POLL_MS = 2000;
+const POLL_MS = 10000;
 
 // Tabler Icons (MIT): settings, outline
 const GEAR = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></svg>';
@@ -209,7 +209,7 @@ export class Tracker extends Addon {
 			// Esc is taken only while the window is open: closed, it's the game's. While recording, it cancels.
 			this.escape?.();
 			this.escape = open ? this.hotkeys.register('Escape', () => { if (this.recording) stopRecording(); else setOpen(false); }, { allowInText: true }) : undefined;
-			// while open, a tiny check every 2 seconds: the lists are read again only when a play or its XP was saved
+			// while open, a tiny check every 10 seconds: the lists are read again only when a play or its XP was saved
 			window.clearInterval(this.poll);
 			if (open) {
 				void load();
