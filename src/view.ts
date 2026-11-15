@@ -25,14 +25,14 @@ const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '', inline
 	return `<span class="map${inline ? ' inline' : ''}" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
 };
 
-/** The skills column: a bar of every skill's share, or the (up to) 2 that gave the most XP. */
+/** The skills column: a bar of every skill's share, or the (up to) 2 that gave the most XP, each in its colour. */
 const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const total = totalOf(gains);
 	const parts = total > 0 ? SKILLS_7K.filter((sk) => num(gains[sk]) > 0) : [];
 	if (as === 'top') {
 		// up to 2, and only those with a real share (15% or more); the biggest one always shows
 		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).filter((sk, i) => i === 0 || num(gains[sk]) / total >= TOP_SHARE).slice(0, 2);
-		return `<span class="top-skills">${top.map((sk) => `<span>${skillName(sk)}</span>`).join('')}</span>`;
+		return `<span class="top-skills">${top.map((sk) => `<span class="tx-${sk}">${skillName(sk)}</span>`).join('')}</span>`;
 	}
 	return `<span class="skills">${parts.map((sk) => `<i class="sk-${sk}" style="width:${(num(gains[sk]) / total) * 100}%" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
 };

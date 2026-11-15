@@ -98,7 +98,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* the recent list sits above the full one: as tall as its maps, up to 40% of the window */
 .recent-best { flex: 0 1 auto; max-height: 40%; margin-bottom: 10px; }
 /* a map not played recently: gray text, gray skill colours */
-.row.stale, .row.stale .muted, .row.stale .strong, .row.stale .top-skills, .row.stale .xp-up, .row.stale .xp-down, .row.stale .trend { color: #6b6c75; }
+.row.stale, .row.stale .muted, .row.stale .strong, .row.stale .top-skills span, .row.stale .xp-up, .row.stale .xp-down, .row.stale .trend { color: #6b6c75; }
 .row.stale .skills { filter: grayscale(1) brightness(0.6); }
 .recent-for { display: inline-flex; align-items: center; gap: 8px; }
 .num-field { width: 64px; height: 32px; padding: 0 10px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
@@ -124,10 +124,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .plays .detail { padding-left: 88px; }
 
 /* each skill's colour */
-.sk-accuracy { background: #ff66aa; } .sk-speed { background: #4f9cf5; } .sk-stamina { background: #5fc3c0; }
+.sk-accuracy { background: #ff66aa; } .sk-speed { background: #4f9cf5; } .sk-stamina { background: #22c55e; }
 .sk-jacks { background: #f0883e; } .sk-independence { background: #a3e635; } .sk-ln { background: #c084fc; }
-.sk-technical { background: #e8c147; } .sk-focus { background: #7dd3fc; } .sk-sv { background: #fb7185; }
+.sk-technical { background: #e8c147; } .sk-focus { background: #e5e7eb; } .sk-sv { background: #fb7185; }
 .sk-memory { background: #94a3b8; }
+/* the same colours as text, for the Top skills column */
+.tx-accuracy { color: #ff66aa; } .tx-speed { color: #4f9cf5; } .tx-stamina { color: #22c55e; }
+.tx-jacks { color: #f0883e; } .tx-independence { color: #a3e635; } .tx-ln { color: #c084fc; }
+.tx-technical { color: #e8c147; } .tx-focus { color: #e5e7eb; } .tx-sv { color: #fb7185; }
+.tx-memory { color: #94a3b8; }
 .dot { flex: none; width: 10px; height: 10px; border-radius: 3px; }
 
 /* the Skills tab: a block per skill, its 5 best maps */

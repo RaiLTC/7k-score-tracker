@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.20] - 2026-11-15
+
+### Changed
+
+- Top skills: the skill names show in their colours (gray on grayed-out maps)
+- Stamina is green and Focus light gray, so they're easier to tell from Speed
+
 ## [0.1.19] - 2026-11-15
 
 ### Added
