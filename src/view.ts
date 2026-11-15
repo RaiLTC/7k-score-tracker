@@ -2,7 +2,9 @@
 // Every text that comes from data is escaped.
 
 import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from './logic.js';
+import { strainOf } from './data.js';
 import type { SkillsAs, Unit } from './settings.js';
+import { arrowsOf } from './strain.js';
 import { TEXT } from './text.js';
 
 // Each skill's colour is a class (sk-speed, …) in styles.css; only sizes that come from data are inline.
@@ -25,7 +27,7 @@ const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '', inline
 	return `<span class="map${inline ? ' inline' : ''}" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
 };
 
-/** The skills column: a bar of every skill's share, or the (up to) 2 that gave the most XP, each in its colour. */
+/** The skills column: a bar for each skill's XP, or the (up to) 2 that gave the most XP, each in its colour. */
 const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const total = totalOf(gains);
 	const parts = total > 0 ? SKILLS_7K.filter((sk) => num(gains[sk]) > 0) : [];
@@ -34,7 +36,12 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 		const top = parts.sort((a, b) => num(gains[b]) - num(gains[a])).filter((sk, i) => i === 0 || num(gains[sk]) / total >= TOP_SHARE).slice(0, 2);
 		return `<span class="top-skills">${top.map((sk) => `<span class="tx-${sk}">${skillName(sk)}</span>`).join('')}</span>`;
 	}
-	return `<span class="skills">${parts.map((sk) => `<i class="sk-${sk}" style="width:${(num(gains[sk]) / total) * 100}%" title="${skillName(sk)}: ${xpText(num(gains[sk]))}"></i>`).join('')}</span>`;
+	// a bar per skill, always in the same order, as tall as its XP against the skill that got the most
+	const most = Math.max(0, ...parts.map((sk) => num(gains[sk])));
+	return `<span class="skills">${SKILLS_7K.map((sk) => {
+		const v = num(gains[sk]);
+		return v > 0 ? `<i class="sk-${sk}" style="height:${(v / most) * 100}%" title="${skillName(sk)}: ${xpText(v)}"></i>` : `<i title="${skillName(sk)}: 0"></i>`;
+	}).join('')}</span>`;
 };
 
 /** The Skills box: which colour is which skill. */
@@ -72,6 +79,31 @@ const trend = (latest: number, previous: number) => {
 const xpCell = (latest: number, previous: number) =>
 	`<span${previous > 0 && latest !== previous ? ` class="xp-${latest > previous ? 'up' : 'down'}"` : ''}>${xpText(latest)}${trend(latest, previous)}</span>`;
 
+/** XP per time, from red (the list's worst) through orange and yellow to green (its best): the tracker's colours,
+ *  blended between the two nearest. Gray rows don't count and stay gray. */
+const GRADE = [[248, 113, 113], [240, 136, 62], [232, 193, 71], [74, 222, 128]];
+const gradeOf = (values: number[]) => {
+	const shown = values.filter((v) => v > 0), lo = Math.min(...shown), hi = Math.max(...shown);
+	return (v: number): string => {
+		const x = (hi > lo ? (v - lo) / (hi - lo) : 1) * (GRADE.length - 1), i = Math.min(GRADE.length - 2, Math.floor(x)), f = x - i;
+		return `rgb(${GRADE[i]!.map((c, n) => Math.round(c + (GRADE[i + 1]![n]! - c) * f)).join(',')})`;
+	};
+};
+/** An XP per time cell, in its colour from `grade` (none when the row is gray). */
+const rateCell = (perMinute: number, unit: Unit, grade?: (v: number) => string) =>
+	(perMinute ? `<span class="strong"${grade ? ` style="color:${grade(perMinute)}"` : ''}>${rateXp(perMinute, unit)}</span>` : '<span class="strong"><span class="muted">–</span></span>');
+
+/** How a play moved your strain: strain minutes per minute of the map, + warming (orange, › arrows) or − cooling
+ *  (blue, ‹ arrows). The number stays in the middle of the column, the arrows on either side. */
+const strainCell = (playedAt: number) => {
+	const v = strainOf(playedAt);
+	if (v === undefined) return `<span class="strain"><span></span><span class="muted" title="${TEXT.noStrain}">–</span><span></span></span>`;
+	// signed only when it shows as more than 0.0
+	const shown = Math.round(v * 10) / 10;
+	const arrows = arrowsOf(v), way = arrows > 0 ? 'warm' : arrows < 0 ? 'cool' : 'muted';
+	return `<span class="strain" title="${TEXT.strainHelp}"><span class="arrows cool">${arrows < 0 ? '‹'.repeat(-arrows) : ''}</span><span class="${way}">${shown > 0 ? '+' : shown < 0 ? '−' : ''}${Math.abs(shown).toFixed(1)}</span><span class="arrows warm">${arrows > 0 ? '›'.repeat(arrows) : ''}</span></span>`;
+};
+
 /** The plays Recent plays lists: all of them, or with `only`, just that map's plays since `since`. */
 export const listedPlays = (all: Play[], since: number, only: number, keep?: (p: Play) => boolean): Play[] => {
 	const mine = only ? all.filter((p) => p.beatmapId === only && p.playedAt >= since) : all;
@@ -95,16 +127,23 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 	const timesPlayed = new Map<number, number>();
 	for (const p of all) timesPlayed.set(p.beatmapId, (timesPlayed.get(p.beatmapId) ?? 0) + 1);
 	const c = TEXT.cols;
-	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.plays}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
-		// the play's XP over its length (the map's length at the play's rate)
+	// the play's XP over its length (the map's length at the play's rate)
+	const perMinuteOf = (p: Play) => {
 		const minutes = p.info && p.info.lengthSec > 0 ? p.info.lengthSec / (num(p.rate) || 1) / 60 : 0;
+		return p.total > 0 && minutes ? p.total / minutes : 0;
+	};
+	// coloured against the plays not grayed out, in the whole list (not only this batch)
+	const grade = gradeOf(listed.filter((p) => p.playedAt >= since).map(perMinuteOf));
+	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
 		return `<div ${row(`${p.playedAt}:${p.beatmapId}`, p.playedAt < since ? staleText : '')}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
-			<span class="map-rate">${mapCell(p.info, p.beatmapId, mods)}<span class="rate-tag">rate x${rateText(p.rate)}</span></span>
+			${mapCell(p.info, p.beatmapId, mods)}
+			<span class="muted">${rateText(p.rate)}</span>
 			<span class="muted" title="${TEXT.playsOnMap}">${timesPlayed.get(p.beatmapId) ?? 1}</span>
 			${p.total > 0 ? xpCell(p.total, before.get(p) ?? 0) : '<span><span class="muted">–</span></span>'}
-			<span class="strong">${p.total > 0 && minutes ? rateXp(p.total / minutes, unit) : '<span class="muted">–</span>'}</span>
+			${rateCell(perMinuteOf(p), unit, p.playedAt < since ? undefined : grade)}
+			${strainCell(p.playedAt)}
 			${skillsCell(p.gains, as)}
 		</div>${breakdown(p.gains, 1, '', only ? 0 : p.beatmapId)}`;
 	}).join('')}`;
@@ -114,13 +153,15 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest): string => {
 	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
-	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
+	const grade = gradeOf(maps.filter((m) => m.lastAt >= since).map((m) => m.perMinute));
+	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
 		<span class="muted">${i + 1}</span>
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
 		${xpCell(m.lastXp, m.prevXp)}
-		<span class="strong">${m.perMinute ? rateXp(m.perMinute, unit) : '<span class="muted">–</span>'}</span>
+		${rateCell(m.perMinute, unit, m.lastAt < since ? undefined : grade)}
+		${strainCell(m.lastAt)}
 		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`).join('')}`;
 };
@@ -133,15 +174,16 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
 	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
-		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span></div>
-		${top.map((x, i) => `<div class="row">
+		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
+		${((grade) => top.map((x, i) => `<div class="row">
 			<span class="muted">${i + 1}</span>
 			<button type="button" class="map-link" data-only="${x.map.beatmapId}" title="${TEXT.onlyMap}">${mapCell(x.map.info, x.map.beatmapId, '', true)}</button>
 			<span class="muted">${rateText(x.map.rate)}</span>
 			<span class="muted">${x.map.n}</span>
 			<span>${xpText(x.perPlay)}</span>
-			<span class="strong">${x.perMinute ? rateXp(x.perMinute, unit) : '<span class="muted">–</span>'}</span>
-		</div>`).join('')}
+			${rateCell(x.perMinute, unit, grade)}
+			${strainCell(x.map.lastAt)}
+		</div>`).join(''))(gradeOf(top.map((x) => x.perMinute)))}
 	</details>`).join('');
 };
 

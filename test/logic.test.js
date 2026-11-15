@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { agoText, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/logic.js';
+import { arrowsOf, strainPerMinute } from '../src/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
 const map = (keys, lengthSec) => ({ title: 'Song', difficulty: 'Hard', keys, lengthSec });
@@ -98,4 +99,18 @@ test('search: != means not', async () => {
 	assert.ok(fits('star!=4'));
 	assert.ok(!fits('star!=5'));
 	assert.ok(fits('length!=60'));
+});
+
+
+test('strain per minute of the map and its arrows', () => {
+	assert.equal(strainPerMinute(100, 106, 3), 2);
+	assert.equal(strainPerMinute(100, 106, 0), 0);
+	assert.equal(arrowsOf(0.02), 0);
+	assert.equal(arrowsOf(0.5), 1);
+	assert.equal(arrowsOf(1.5), 2);
+	assert.equal(arrowsOf(3), 3);
+	assert.equal(arrowsOf(9), 3);
+	assert.equal(arrowsOf(-0.2), -1);
+	assert.equal(arrowsOf(-0.5), -2);
+	assert.equal(arrowsOf(-1), -3);
 });

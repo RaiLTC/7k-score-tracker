@@ -2,6 +2,19 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.35] - 2026-11-15
+
+### Added
+
+- Strain column in every list: the strain minutes a play added or rested per minute of the map, with the game's arrows (for a map, its latest play). Noted as plays come in, also while the window is closed
+- XP per time is coloured from green (the list's best) through yellow and orange to red (its worst)
+
+### Changed
+
+- Rate is its own column again in Recent plays
+- The number columns are the same width, centred and evenly spaced
+- Skills: a vertical bar per skill instead of one horizontal bar
+
 ## [0.1.34] - 2026-11-15
 
 ### Changed

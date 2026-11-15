@@ -3,7 +3,7 @@
 // window is closed, and while it's open, only clicks and keys do anything.
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
-import { TrackerError, latestMark, recent7k, savePlaylist } from './data.js';
+import { TrackerError, latestMark, noteStrain, recent7k, savePlaylist } from './data.js';
 import { type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, searching, topSkills } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
@@ -261,14 +261,16 @@ export class Tracker extends Addon {
 			drawPage();
 		};
 
+		const gameApi = () => (this.host as { api?: Api } | undefined)?.api ?? (globalThis as { ossIdle?: { api?: Api } }).ossIdle?.api;
 		const load = async () => {
 			const ticket = ++this.loading;
 			// the first time only: after that, the old lists stay up until the new ones are ready
 			if (!plays) playsList.innerHTML = bestList.innerHTML = recentList.innerHTML = skillsList.innerHTML = messageHtml(TEXT.loading);
 			try {
-				const api = (this.host as { api?: Api } | undefined)?.api ?? (globalThis as { ossIdle?: { api?: Api } }).ossIdle?.api;
+				const api = gameApi();
 				// the mark first: anything saved while reading shows up on the next check
 				this.mark = await latestMark().catch(() => this.mark);
+				await noteStrain(api).catch((e: unknown) => this.log.error('noting the strain failed', e));
 				const result = await recent7k(api);
 				if (ticket !== this.loading) return;
 				plays = result;
@@ -287,17 +289,19 @@ export class Tracker extends Addon {
 			// Esc is taken only while the window is open: closed, it's the game's. While recording, it cancels.
 			this.escape?.();
 			this.escape = open ? this.hotkeys.register('Escape', () => { if (this.recording) stopRecording(); else setOpen(false); }, { allowInText: true }) : undefined;
-			// while open, a tiny check every 10 seconds: the lists are read again only when a play or its XP was saved
-			window.clearInterval(this.poll);
-			if (open) {
-				void load();
-				this.poll = window.setInterval(() => void latestMark().then((m) => {
-					if (m && m !== this.mark) void load();
-					// no new play: once a minute, draw again so times, the recent list and gray maps keep up
-					else if (Date.now() - this.drawnAt >= 60e3) renderLists();
-				}, () => undefined), POLL_MS);
-			} else stopRecording();
+			if (open) void load();
+			else stopRecording();
 		};
+		// a tiny check every 10 seconds, open or not: when a play or its XP was saved, its strain is noted (the game
+		// keeps none per play), and while open the lists are read again
+		this.poll = window.setInterval(() => void latestMark().then((m) => {
+			if (m && m !== this.mark) {
+				if (!win.hidden) return void load();
+				this.mark = m;
+				void noteStrain(gameApi()).catch((e: unknown) => this.log.error('noting the strain failed', e));
+			// no new play: once a minute, draw again so times, the recent list and gray maps keep up
+			} else if (!win.hidden && Date.now() - this.drawnAt >= 60e3) renderLists();
+		}, () => undefined), POLL_MS);
 		this.own(() => window.clearInterval(this.poll));
 
 		// the shortcut: registered from the setting, and again whenever it changes

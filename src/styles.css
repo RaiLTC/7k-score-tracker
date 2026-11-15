@@ -84,16 +84,26 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .row[role='button'] { cursor: pointer; }
 .row[role='button']:hover, .row[aria-expanded='true'], .row[aria-expanded='true'] + .detail { background: var(--hover); }
 .row[role='button'][aria-expanded='true'] { border-bottom: 0; }
-.plays .row { grid-template-columns: 64px minmax(0, 1fr) 44px 64px 64px 110px; }
-/* Recent plays: the rate right of the map's name and difficulty */
-.map-rate { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.rate-tag { flex: none; color: var(--muted); font-size: 11px; white-space: nowrap; }
-.best .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px 110px; }
-/* numbers sit centred in their columns, under centred headings */
-.best .row > :nth-child(n+3):nth-child(-n+6), .plays .row > :nth-child(n+3):nth-child(-n+5) { text-align: center; }
+.plays .row { grid-template-columns: 64px minmax(0, 1fr) repeat(5, 56px) 124px; }
+.best .row { grid-template-columns: 22px minmax(0, 1fr) repeat(5, 56px) 124px; }
+/* the numbers sit centred in same-width columns, under centred headings, so they're evenly spaced; Skills starts as
+   far from Strain as the numbers are apart */
+.best .row > :nth-child(n+3):nth-child(-n+7), .plays .row > :nth-child(n+3):nth-child(-n+7) { text-align: center; }
+.best .row > :nth-child(8), .plays .row > :nth-child(8) { padding-left: 16px; }
+/* Strain: the number in the middle; the arrows on either side, spilling past the column rather than pushing it */
+.strain { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
+.strain .arrows { display: flex; white-space: nowrap; }
+.arrows.cool { justify-content: flex-end; padding-right: 4px; }
+.arrows.warm { padding-left: 4px; }
+.strain .cool { color: #4f9cf5; }
+.strain .warm { color: #f0883e; }
+.row.stale .strain span { color: #6b6c75; }
 .map { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .map span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.skills { display: flex; height: 8px; overflow: hidden; background: var(--line); border-radius: 3px; }
+/* a bar per skill, as tall as its XP against the row's biggest; a skill with none is a gray stub */
+.skills { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+.skills i { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0; }
+.skills i:not([class]) { background: var(--line); }
 
 /* a row's XP per skill, under it */
 .detail { padding: 4px 14px 12px; }
@@ -178,7 +188,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
 .skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }
 /* the same columns as Most effective maps, without Skills; the difficulty sits on the title's line */
-.by-skill .row { grid-template-columns: 22px minmax(0, 1fr) 40px 44px 64px 64px; min-height: 34px; contain-intrinsic-size: auto 34px; }
+.by-skill .row { grid-template-columns: 22px minmax(0, 1fr) repeat(5, 56px); min-height: 34px; contain-intrinsic-size: auto 34px; }
 .map.inline { flex-direction: row; align-items: baseline; gap: 8px; }
 .map.inline span:first-child { flex-shrink: 1; }
 .map.inline span:last-child { flex-shrink: 10; }
