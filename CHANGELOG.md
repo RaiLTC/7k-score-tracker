@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.33] - 2026-11-15
+
+### Changed
+
+- Skills box: select a skill once to hide maps that give it the most XP, twice to hide every map it's a top skill of, a third time to show them again
+
 ## [0.1.32] - 2026-11-15
 
 ### Added

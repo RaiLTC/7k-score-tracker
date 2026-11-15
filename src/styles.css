@@ -127,6 +127,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* each skill in the Skills box is a switch: off, its maps are hidden (struck through, gray dot) */
 .legend-skill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px; margin: -2px -6px; color: var(--text); white-space: nowrap; background: none; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
 .legend-skill:hover { background: var(--hover); }
+/* first click: gray with a hollow dot; second: struck through too */
+.legend-skill[aria-pressed='mixed'] { color: #6b6c75; }
+.legend-skill[aria-pressed='mixed'] .dot { background: none; box-shadow: inset 0 0 0 1.5px #6b6c75; }
 .legend-skill[aria-pressed='false'] { color: #6b6c75; text-decoration: line-through; }
 .legend-skill[aria-pressed='false'] .dot { background: #3a3b45; }
 .top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 4px 0; font-size: 11px; line-height: 1.35; min-width: 0; }

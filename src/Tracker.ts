@@ -4,7 +4,7 @@
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { TrackerError, latestMark, recent7k, savePlaylist } from './data.js';
-import { type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, searching } from './logic.js';
+import { type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, searching, topSkills } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
@@ -140,7 +140,8 @@ export class Tracker extends Addon {
 			win.style.setProperty('--on-accent', onAccent(accent));
 			for (const b of root.querySelectorAll<HTMLElement>('[data-set]')) b.setAttribute('aria-checked', String(String(s[b.dataset.set as keyof Settings]) === b.dataset.value));
 			for (const b of root.querySelectorAll<HTMLElement>('[data-accent]')) b.setAttribute('aria-checked', String(b.dataset.accent === s.accent));
-			for (const b of root.querySelectorAll<HTMLElement>('[data-skill]')) b.setAttribute('aria-pressed', String(!s.hidden.includes(b.dataset.skill!)));
+			// shown (true), its main-skill maps hidden (mixed), every map it's a top skill of hidden (false)
+			for (const b of root.querySelectorAll<HTMLElement>('[data-skill]')) b.setAttribute('aria-pressed', s.removed.includes(b.dataset.skill!) ? 'false' : s.hidden.includes(b.dataset.skill!) ? 'mixed' : 'true');
 			$('.swatches .custom').style.background = s.accent === 'custom' ? s.customAccent : '';
 			customColor.value = s.customAccent;
 			for (const input of numbers) input.value = String(s[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
@@ -156,9 +157,13 @@ export class Tracker extends Addon {
 		const keepPlay = () => (searching(query) ? (p: Play) => fitsSearch(query, p.info, p.beatmapId, p.rate, p.gains) : undefined);
 		const keepMaps = <T extends { info: Play['info'], beatmapId: number, rate: number, gains: Play['gains'] }>(maps: T[]) =>
 			(searching(query) ? maps.filter((m) => fitsSearch(query, m.info, m.beatmapId, m.rate, m.gains)) : maps);
-		/** Most effective maps and the recent list leave out maps whose main skill is hidden in the Skills box. */
-		const shownSkills = <T extends { gains: Play['gains'] }>(maps: T[]) =>
-			(this.settings.hidden.length ? maps.filter((m) => !this.settings.hidden.includes(mainSkill(m.gains))) : maps);
+		/** Most effective maps and the recent list leave out maps whose main skill is hidden in the Skills box, and maps
+		 *  with a removed skill among their top 2. */
+		const shownSkills = <T extends { gains: Play['gains'] }>(maps: T[]) => {
+			const { hidden, removed } = this.settings;
+			if (!hidden.length && !removed.length) return maps;
+			return maps.filter((m) => !hidden.includes(mainSkill(m.gains)) && !topSkills(m.gains).some((sk) => removed.includes(sk)));
+		};
 		/** Recent plays are drawn 50 at a time; scrolling near the end adds the next 50. */
 		let playsShown = PLAYS_BATCH;
 		/** The tabs drawn from the current plays; the others are drawn when they're opened. */
@@ -395,8 +400,12 @@ export class Tracker extends Addon {
 			if (!target) return;
 			// a skill in the Skills box: hide its maps, or show them again
 			if (target.dataset.skill) {
-				const sk = target.dataset.skill, hidden = this.settings.hidden;
-				this.save({ hidden: hidden.includes(sk) ? hidden.filter((x) => x !== sk) : [...hidden, sk] });
+				// three steps: shown → its main-skill maps hidden → every map it's a top skill of hidden → shown
+				const sk = target.dataset.skill, { hidden, removed } = this.settings;
+				const without = (list: string[]) => list.filter((x) => x !== sk);
+				if (removed.includes(sk)) this.save({ removed: without(removed), hidden: without(hidden) });
+				else if (hidden.includes(sk)) this.save({ hidden: without(hidden), removed: [...removed, sk] });
+				else this.save({ hidden: [...hidden, sk] });
 				applyLook();
 				renderLists();
 				return;
