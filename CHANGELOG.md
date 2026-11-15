@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.26] - 2026-11-15
+
+### Fixed
+
+- Settings number boxes: Backspace and Delete didn't work in game, so a new number was added to the old one. Clicking a box now selects its number, and Enter saves it
+
 ## [0.1.25] - 2026-11-15
 
 ### Changed

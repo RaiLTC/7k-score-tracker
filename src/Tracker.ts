@@ -90,9 +90,9 @@ export class Tracker extends Addon {
 						${settingRow(TEXT.keybind, TEXT.keybindHelp, `<button type="button" class="keybind" data-action="record"></button><button type="button" class="btn" data-action="reset-key">${TEXT.reset}</button>`, ' data-key-help')}
 						${settingRow(TEXT.skillsAs, TEXT.skillsAsHelp, choice('skillsAs', TEXT.skillsAs, TEXT.skillsAsOptions))}
 						${settingRow(TEXT.recent, TEXT.recentHelp, choice('recent', TEXT.recent, TEXT.recentOptions))}
-						${settingRow(TEXT.recentFor, TEXT.recentForHelp, `<span class="recent-for"><input type="number" class="num-field" min="1" max="999" step="1" inputmode="numeric" aria-label="${TEXT.recentFor}" data-number="recentFor">${choice('recentUnit', TEXT.recentFor, TEXT.recentUnits)}</span>`)}
-						${settingRow(TEXT.recentCount, TEXT.recentCountHelp, `<input type="number" class="num-field" min="1" max="999" step="1" inputmode="numeric" aria-label="${TEXT.recentCount}" data-number="recentCount">`)}
-						${settingRow(TEXT.bestCount, TEXT.bestCountHelp, `<input type="number" class="num-field" min="1" max="999" step="1" inputmode="numeric" aria-label="${TEXT.bestCount}" data-number="bestCount">`)}
+						${settingRow(TEXT.recentFor, TEXT.recentForHelp, `<span class="recent-for"><input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.recentFor}" data-number="recentFor">${choice('recentUnit', TEXT.recentFor, TEXT.recentUnits)}</span>`)}
+						${settingRow(TEXT.recentCount, TEXT.recentCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.recentCount}" data-number="recentCount">`)}
+						${settingRow(TEXT.bestCount, TEXT.bestCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.bestCount}" data-number="bestCount">`)}
 						${settingRow(TEXT.buttonStyle, TEXT.buttonStyleHelp, choice('buttons', TEXT.buttonStyle, TEXT.buttonStyles))}
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 					</section>
@@ -275,6 +275,20 @@ export class Tracker extends Addon {
 		this.on(customColor, 'input', () => { this.settings = { ...this.settings, accent: 'custom', customAccent: customColor.value }; applyLook(); });
 		// the number settings: saved once it's a whole number from 1 to 999, else put back
 		for (const input of numbers) {
+			// clicked or tabbed into: the whole number is selected, so typing replaces it
+			this.on(input, 'focus', () => input.select());
+			this.on(input, 'mouseup', (e) => e.preventDefault());
+			this.on(input, 'input', () => { input.value = input.value.replace(/\D/g, ''); });
+			// the game blocks Backspace and Delete before they reach the field: when it has, delete here instead
+			this.on(input, 'keydown', (event) => {
+				const e = event as KeyboardEvent;
+				if (e.key === 'Enter') { input.blur(); return; }
+				if (!e.defaultPrevented || (e.key !== 'Backspace' && e.key !== 'Delete')) return;
+				const v = input.value, from = input.selectionStart ?? v.length, to = input.selectionEnd ?? from;
+				const [start, end] = from !== to ? [from, to] : e.key === 'Backspace' ? [Math.max(0, from - 1), from] : [from, Math.min(v.length, from + 1)];
+				input.value = v.slice(0, start) + v.slice(end);
+				input.setSelectionRange(start, start);
+			});
 			this.on(input, 'change', () => {
 				const n = wholeOf(input.value);
 				if (n !== null) { this.save({ [input.dataset.number!]: n }); renderLists(); }
