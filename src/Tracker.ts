@@ -5,7 +5,7 @@
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { TrackerError, latestMark, recent7k } from './data.js';
 import { type Play, bestMaps } from './logic.js';
-import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, settingsStore } from './settings.js';
+import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_SETTINGS, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
 import { bestHtml, bySkillHtml, legendHtml, messageHtml, playsHtml } from './view.js';
@@ -45,6 +45,7 @@ export class Tracker extends Addon {
 	private loading = 0;
 	private poll = 0;
 	private mark = '';
+	private drawnAt = 0;
 
 	constructor() {
 		super({ name: TEXT.name });
@@ -80,11 +81,16 @@ export class Tracker extends Addon {
 				<div class="panels">
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span></div><div class="legend-list">${legendHtml()}</div></section>
+					<section class="card best recent-best" hidden><div class="card-head"><span class="title" data-recent-title></span><span class="muted" data-recent-note></span></div><div class="list" data-list="recent"></div></section>
 					<section class="card best" hidden><div class="card-head"><span class="title">${TEXT.best}</span><span class="muted" data-best-note></span></div><div class="list" data-list="best"></div></section>
 					<section class="card by-skill" hidden><div class="card-head"><span class="title">${TEXT.bySkill}</span><span class="muted">${TEXT.bySkillNote}</span></div><div class="list" data-list="skills"></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
 						${settingRow(TEXT.keybind, TEXT.keybindHelp, `<button type="button" class="keybind" data-action="record"></button><button type="button" class="btn" data-action="reset-key">${TEXT.reset}</button>`, ' data-key-help')}
 						${settingRow(TEXT.skillsAs, TEXT.skillsAsHelp, choice('skillsAs', TEXT.skillsAs, TEXT.skillsAsOptions))}
+						${settingRow(TEXT.recent, TEXT.recentHelp, choice('recent', TEXT.recent, TEXT.recentOptions))}
+						${settingRow(TEXT.recentFor, TEXT.recentForHelp, `<span class="recent-for"><input type="number" class="num-field" min="1" max="999" step="1" inputmode="numeric" aria-label="${TEXT.recentFor}" data-number="recentFor">${choice('recentUnit', TEXT.recentFor, TEXT.recentUnits)}</span>`)}
+						${settingRow(TEXT.recentCount, TEXT.recentCountHelp, `<input type="number" class="num-field" min="1" max="999" step="1" inputmode="numeric" aria-label="${TEXT.recentCount}" data-number="recentCount">`)}
+						${settingRow(TEXT.bestCount, TEXT.bestCountHelp, `<input type="number" class="num-field" min="1" max="999" step="1" inputmode="numeric" aria-label="${TEXT.bestCount}" data-number="bestCount">`)}
 						${settingRow(TEXT.buttonStyle, TEXT.buttonStyleHelp, choice('buttons', TEXT.buttonStyle, TEXT.buttonStyles))}
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 					</section>
@@ -103,9 +109,10 @@ export class Tracker extends Addon {
 		this.own(() => this.hotkeys.dispose());
 
 		const $ = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
-		const win = $('.window'), playsList = $('[data-list="plays"]'), bestList = $('[data-list="best"]'), skillsList = $('[data-list="skills"]'), count = $('[data-count]');
+		const win = $('.window'), playsList = $('[data-list="plays"]'), bestList = $('[data-list="best"]'), recentList = $('[data-list="recent"]'), skillsList = $('[data-list="skills"]'), count = $('[data-count]');
 		const keyButton = $('[data-action="record"]'), keyHelp = $('[data-key-help]'), gear = $('[data-action="settings"]');
 		const customColor = $<HTMLInputElement>('[data-custom-color]');
+		const numbers = [...root.querySelectorAll<HTMLInputElement>('[data-number]')];
 
 		// the settings that change how the window looks, applied all at once
 		const applyLook = () => {
@@ -118,7 +125,9 @@ export class Tracker extends Addon {
 			for (const b of root.querySelectorAll<HTMLElement>('[data-accent]')) b.setAttribute('aria-checked', String(b.dataset.accent === s.accent));
 			$('.swatches .custom').style.background = s.accent === 'custom' ? s.customAccent : '';
 			customColor.value = s.customAccent;
-			$('[data-best-note]').textContent = TEXT.bestNote[s.unit] ?? '';
+			for (const input of numbers) input.value = String(s[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
+			$('[data-best-note]').textContent = $('[data-recent-note]').textContent = TEXT.bestNote[s.unit] ?? '';
+			$('[data-recent-title]').textContent = TEXT.recentTitle(s.recentFor, s.recentUnit);
 		};
 
 		let plays: Play[] | null = null;
@@ -127,8 +136,12 @@ export class Tracker extends Addon {
 			// what's open stays open when the lists are drawn again
 			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map((el) => el.dataset.key));
 			playsList.innerHTML = playsHtml(plays, Date.now(), this.settings.unit, this.settings.skillsAs);
+			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
 			const maps = bestMaps(plays);
-			bestList.innerHTML = bestHtml(maps, this.settings.unit, this.settings.skillsAs);
+			bestList.innerHTML = bestHtml(maps.slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
+			// the recent list counts only the plays inside the time
+			recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since)).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
+			this.drawnAt = now;
 			skillsList.innerHTML = bySkillHtml(maps, this.settings.unit);
 			if (!open.size) return;
 			for (const el of root.querySelectorAll<HTMLElement>('[data-key]')) {
@@ -151,7 +164,8 @@ export class Tracker extends Addon {
 			page = next;
 			for (const b of root.querySelectorAll<HTMLElement>('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === next));
 			$('.plays').hidden = next !== 'plays';
-			$('.best').hidden = $('.legend').hidden = next !== 'best';
+			$('.best:not(.recent-best)').hidden = $('.legend').hidden = next !== 'best';
+			$('.recent-best').hidden = next !== 'best' || this.settings.recent === 'hide';
 			$('.by-skill').hidden = next !== 'skills';
 			$('.settings').hidden = next !== 'settings';
 			$('[data-unit-switch]').hidden = next === 'settings';
@@ -163,7 +177,7 @@ export class Tracker extends Addon {
 		const load = async () => {
 			const ticket = ++this.loading;
 			// the first time only: after that, the old lists stay up until the new ones are ready
-			if (!plays) playsList.innerHTML = bestList.innerHTML = skillsList.innerHTML = messageHtml(TEXT.loading);
+			if (!plays) playsList.innerHTML = bestList.innerHTML = recentList.innerHTML = skillsList.innerHTML = messageHtml(TEXT.loading);
 			try {
 				const api = (this.host as { api?: Api } | undefined)?.api ?? (globalThis as { ossIdle?: { api?: Api } }).ossIdle?.api;
 				// the mark first: anything saved while reading shows up on the next check
@@ -177,7 +191,7 @@ export class Tracker extends Addon {
 				if (ticket !== this.loading) return;
 				this.log.error('loading failed', e);
 				const message = messageHtml(e instanceof TrackerError ? e.message : TEXT.loadFailed, true);
-				playsList.innerHTML = bestList.innerHTML = skillsList.innerHTML = message;
+				playsList.innerHTML = bestList.innerHTML = recentList.innerHTML = skillsList.innerHTML = message;
 			}
 		};
 
@@ -193,6 +207,8 @@ export class Tracker extends Addon {
 				void load();
 				this.poll = window.setInterval(() => void latestMark().then((m) => {
 					if (m && m !== this.mark) void load();
+					// no new play: once a minute, draw again so times, the recent list and gray maps keep up
+					else if (Date.now() - this.drawnAt >= 60e3) renderLists();
 				}, () => undefined), POLL_MS);
 			} else stopRecording();
 		};
@@ -222,6 +238,14 @@ export class Tracker extends Addon {
 
 		// a custom accent: shown while it's picked, saved when the picker closes
 		this.on(customColor, 'input', () => { this.settings = { ...this.settings, accent: 'custom', customAccent: customColor.value }; applyLook(); });
+		// the number settings: saved once it's a whole number from 1 to 999, else put back
+		for (const input of numbers) {
+			this.on(input, 'change', () => {
+				const n = wholeOf(input.value);
+				if (n !== null) { this.save({ [input.dataset.number!]: n }); renderLists(); }
+				applyLook();
+			});
+		}
 		this.on(customColor, 'change', () => this.save({ accent: 'custom', customAccent: customColor.value }));
 
 		applyLook();
@@ -262,7 +286,8 @@ export class Tracker extends Addon {
 			if (set) {
 				this.save({ [set]: value } as Partial<Settings>);
 				applyLook();
-				if (set === 'unit' || set === 'skillsAs') renderLists();
+				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide';
+				if (set === 'unit' || set === 'skillsAs' || set === 'recentUnit') renderLists();
 				return;
 			}
 			if (accent) {

@@ -4,11 +4,11 @@ An [oss!idle](https://oss.idle.rhythmgamers.net) add-on for 7K: your recent play
 
 Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), where you can also pick the accent colour, the button style and how skills show. Esc closes it.
 
-- **Recent plays:** your latest 7K plays: when, the map, rate and mods, XP, and which skills it trained.
-- **Most effective maps:** every 7K map you've played, ranked by XP per minute at the rate you played it.
+- **Recent plays:** your latest 7K plays: when, the map, rate and mods, XP, XP per hour, minute or second, and which skills it trained.
+- **Most effective maps:** your top 25 7K maps, ranked by XP per minute at the rate you played them, under your top 10 from the last hour. Maps you haven't played in that hour are grayed out. The numbers and the hour can be changed in Settings.
 - **Skills:** for each skill, the 5 maps that gave it the most XP. Click a skill to open it.
 - **Click any play or map** to see its total XP and the XP per skill.
-- **Updates itself** while it's open: a new play, and its XP, show up within 2 seconds. An arrow next to a map's XP shows when it gave clearly less (↓) or more (↑) than your play before.
+- **Updates itself** while it's open: a new play, and its XP, show up within 2 seconds. A map's latest XP is green when it gave more than your play before and red when less, with an arrow when the change is 5% or more.
 
 ## What it reads, and from where
 

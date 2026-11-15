@@ -54,9 +54,9 @@ const breakdown = (gains: Gains, per = 1, label = '') => {
 };
 
 /** A clickable row; its key lets an open row stay open when the list is drawn again. */
-const row = (key: string) => `class="row" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"`;
+const row = (key: string, stale = '') => `class="row${stale ? ' stale' : ''}" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"${stale ? ` title="${esc(stale)}"` : ''}`;
 
-/** Next to a map's latest XP: an arrow when it gave clearly less (or more) than the play before, 5% or more. */
+/** A map's latest XP is green when it gave more than the play before, red when less. Next to it: an arrow when it gave clearly less (or more) than the play before, 5% or more. */
 const TREND_MIN = 0.05;
 const trend = (latest: number, previous: number) => {
 	if (previous <= 0) return '';
@@ -85,15 +85,16 @@ export const playsHtml = (plays: Play[], now: number, unit: Unit, as: SkillsAs):
 	}).join('')}`;
 };
 
-export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs): string => {
-	if (!maps.length) return `<div class="empty">${TEXT.noBest}</div>`;
+/** The most effective maps; a map not played since `since` (if given) is grayed out, with `staleText` as its tooltip. */
+export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest): string => {
+	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
-	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`)}>
+	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
 		<span class="muted">${i + 1}</span>
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
-		<span>${xpText(m.lastXp)}${trend(m.lastXp, m.prevXp)}</span>
+		<span${m.prevXp > 0 && m.lastXp !== m.prevXp ? ` class="xp-${m.lastXp > m.prevXp ? 'up' : 'down'}"` : ''}>${xpText(m.lastXp)}${trend(m.lastXp, m.prevXp)}</span>
 		<span class="strong">${m.perMinute ? rateXp(m.perMinute, unit) : '<span class="muted">–</span>'}</span>
 		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '')}`).join('')}`;

@@ -2,6 +2,20 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.19] - 2026-11-15
+
+### Added
+
+- Most effective maps: a Last hour section above the full list, ranked from your plays in that time only
+- Maps you haven't played in that time are grayed out in the full list
+- A map's latest XP is green when it gave more than your play before, red when less
+- Settings: show or hide the recent section, how long counts as recent (minutes or hours, 1 hour by default), and how many maps each list shows (10 and 25 by default)
+
+### Changed
+
+- The window is taller
+- The trend arrows are green and red
+
 ## [0.1.18] - 2026-11-15
 
 ### Fixed

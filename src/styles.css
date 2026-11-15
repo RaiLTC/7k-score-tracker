@@ -14,7 +14,7 @@
 
 .window {
 	position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-	width: min(900px, 94vw); height: min(640px, 86vh); display: flex; flex-direction: column; gap: 10px; padding: 12px;
+	width: min(900px, 94vw); height: min(880px, 92vh); display: flex; flex-direction: column; gap: 10px; padding: 12px;
 	font-family: inherit; font-size: 13px; line-height: 1.4; color: var(--text);
 	background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
 	pointer-events: auto;
@@ -95,6 +95,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* the Skills box (which colour is which skill), and the Top skills column */
 .legend { flex: none; padding: 10px 14px; margin-bottom: 10px; }
+/* the recent list sits above the full one: as tall as its maps, up to 40% of the window */
+.recent-best { flex: 0 1 auto; max-height: 40%; margin-bottom: 10px; }
+/* a map not played recently: gray text, gray skill colours */
+.row.stale, .row.stale .muted, .row.stale .strong, .row.stale .top-skills, .row.stale .xp-up, .row.stale .xp-down, .row.stale .trend { color: #6b6c75; }
+.row.stale .skills { filter: grayscale(1) brightness(0.6); }
+.recent-for { display: inline-flex; align-items: center; gap: 8px; }
+.num-field { width: 64px; height: 32px; padding: 0 10px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
+.num-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .legend-list, .top-skills { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
 .legend-list span, .top-skills span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 4px 0; font-size: 11px; line-height: 1.35; min-width: 0; }
@@ -141,7 +149,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .map.inline span:last-child { flex-shrink: 10; }
 .by-skill .row > :nth-child(n+3) { text-align: center; }
 
-/* the latest XP's trend against the play before */
+/* the latest XP against the play before: green when more, red when less (gray when the map is stale) */
 .trend { font-size: 11px; font-weight: 500; }
-.trend.down { color: #f0883e; }
-.trend.up { color: #5fc3c0; }
+.xp-up, .trend.up { color: #4ade80; }
+.xp-down, .trend.down { color: #f87171; }
