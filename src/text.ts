@@ -56,7 +56,7 @@ export const TEXT = {
 	noXp: 'No XP',
 	latest: 'Your latest play on it',
 	search: 'Search..   e.g. clover   length>1m30   length<90   skill:stamina   star>=5',
-	searchHelp: 'Map name or difficulty, and tags: length>1m30 (or length<90, in seconds), skill:stamina, star>=5 (or star-rating>=5)',
+	searchHelp: 'Map name or difficulty, and tags: length>1m30 (or length<90, in seconds), skill:stamina, star>=5 (or stars, star-rating)',
 	noMatch: 'Nothing matches your search.',
 	onlyMap: 'Show its recent plays',
 	savePlaylist: 'Save as playlist',

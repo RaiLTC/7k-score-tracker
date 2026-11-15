@@ -110,7 +110,7 @@ export const bestBySkill = (maps, count = 5) => SKILLS_7K.map((skill) => ({
 
 const TAG_KEYS = /** @type {Record<string, 'length' | 'skill' | 'stars'>} */ ({
 	length: 'length', len: 'length', skill: 'skill', skills: 'skill',
-	'star-rating': 'stars', stars: 'stars', star: 'stars', sr: 'stars',
+	'star-rating': 'stars', stars: 'stars', star: 'stars',
 });
 
 /** "90" or "90s" → 90, "1m30" or "1m30s" → 90, "2m" → 120; null when it isn't a length. @param {string} v */

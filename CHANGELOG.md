@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.31] - 2026-11-15
+
+### Changed
+
+- Search: the star rating tag is star, stars or star-rating
+
 ## [0.1.30] - 2026-11-15
 
 ### Added

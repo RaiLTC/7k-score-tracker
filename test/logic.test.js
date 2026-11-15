@@ -85,6 +85,6 @@ test('search: words and tags', async () => {
 	assert.ok(!fits('skill:jacks'));
 	assert.ok(fits('star-rating>=5'));
 	assert.ok(fits('stars=5'));
-	assert.ok(!fits('sr>6'));
-	assert.ok(fits('clover length<=2m skill:stam star-rating<6'));
+	assert.ok(!fits('stars>6'));
+	assert.ok(fits('clover length<=2m skill:stam star<6'));
 });
