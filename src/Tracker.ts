@@ -8,13 +8,15 @@ import { type Play, bestMaps } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_SETTINGS, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
-import { bestHtml, bySkillHtml, legendHtml, messageHtml, playsHtml } from './view.js';
+import { bestHtml, bySkillHtml, legendHtml, listedPlays, messageHtml, playsHtml } from './view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings';
 
 /** How often, while the window is open, it checks for a new play. */
 const POLL_MS = 10000;
+/** How many Recent plays rows are drawn at a time. */
+const PLAYS_BATCH = 50;
 
 // Tabler Icons (MIT): settings, outline
 const GEAR = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/></svg>';
@@ -133,33 +135,57 @@ export class Tracker extends Addon {
 		let plays: Play[] | null = null;
 		/** A map whose recent plays alone are shown in Recent plays, or 0 for all. */
 		let only = 0;
+		/** Recent plays are drawn 50 at a time; scrolling near the end adds the next 50. */
+		let playsShown = PLAYS_BATCH;
+		/** The tabs drawn from the current plays; the others are drawn when they're opened. */
+		let drawn = new Set<Page>();
 		const renderLists = () => {
-			if (!plays) return;
-			// what's open stays open when the lists are drawn again
+			drawn = new Set();
+			drawPage();
+		};
+		const drawPage = () => {
+			if (!plays || page === 'settings' || drawn.has(page)) return;
+			drawn.add(page);
+			const lists = page === 'plays' ? [playsList] : page === 'best' ? [bestList, recentList] : [skillsList];
+			// what's open stays open when a list is drawn again
 			// (per list: the same map can be in two lists, and opening it in one mustn't open the other)
 			const keyOf = (el: HTMLElement) => `${el.closest<HTMLElement>('[data-list]')?.dataset.list}:${el.dataset.key}`;
-			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map(keyOf));
+			const open = new Set(lists.flatMap((l) => [...l.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')]).map(keyOf));
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
-			playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, only ? TEXT.noMapPlays(title) : TEXT.noPlays);
-			const shown = only ? plays.filter((p) => p.beatmapId === only && p.playedAt >= since) : plays;
-			count.textContent = shown.length ? `· ${shown.length}` : '';
-			const info = only ? plays.find((p) => p.beatmapId === only)?.info : undefined;
-			$('[data-filter-name]').textContent = only ? `${info ? info.title : TEXT.map(only)} · ${title}` : '';
-			$('[data-filter]').hidden = !only;
-			const maps = bestMaps(plays);
-			bestList.innerHTML = bestHtml(maps.slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
-			// the recent list counts only the plays inside the time
-			recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since)).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
+			if (page === 'plays') {
+				playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, only ? TEXT.noMapPlays(title) : TEXT.noPlays, 0, playsShown);
+				const listed = listedPlays(plays, since, only);
+				count.textContent = listed.length ? `· ${listed.length}` : '';
+				const info = only ? plays.find((p) => p.beatmapId === only)?.info : undefined;
+				$('[data-filter-name]').textContent = only ? `${info ? info.title : TEXT.map(only)} · ${title}` : '';
+				$('[data-filter]').hidden = !only;
+			} else if (page === 'best') {
+				bestList.innerHTML = bestHtml(bestMaps(plays).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
+				// the recent list counts only the plays inside the time
+				recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since)).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
+			} else {
+				skillsList.innerHTML = bySkillHtml(bestMaps(plays), s.unit);
+			}
 			this.drawnAt = now;
-			skillsList.innerHTML = bySkillHtml(maps, this.settings.unit);
 			if (!open.size) return;
-			for (const el of root.querySelectorAll<HTMLElement>('[data-key]')) {
-				if (!open.has(keyOf(el))) continue;
-				if (el instanceof HTMLDetailsElement) { el.open = true; continue; }
-				el.setAttribute('aria-expanded', 'true');
-				(el.nextElementSibling as HTMLElement).hidden = false;
+			for (const list of lists) {
+				for (const el of list.querySelectorAll<HTMLElement>('[data-key]')) {
+					if (!open.has(keyOf(el))) continue;
+					if (el instanceof HTMLDetailsElement) { el.open = true; continue; }
+					el.setAttribute('aria-expanded', 'true');
+					(el.nextElementSibling as HTMLElement).hidden = false;
+				}
 			}
 		};
+		// near the end of Recent plays: the next 50 (only while scrolling, nothing runs otherwise)
+		this.on(playsList, 'scroll', () => {
+			if (!plays || page !== 'plays' || playsList.scrollTop + playsList.clientHeight < playsList.scrollHeight - 300) return;
+			const s = this.settings, since = Date.now() - recentMs(s);
+			if (playsShown >= listedPlays(plays, since, only).length) return;
+			const title = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			playsList.insertAdjacentHTML('beforeend', playsHtml(plays, Date.now(), s.unit, s.skillsAs, since, TEXT.stale(title), only, '', playsShown, PLAYS_BATCH));
+			playsShown += PLAYS_BATCH;
+		});
 
 		const stopRecording = () => {
 			this.recording = false;
@@ -181,6 +207,7 @@ export class Tracker extends Addon {
 			gear.setAttribute('aria-pressed', String(next === 'settings'));
 			if (next !== 'settings' && next !== this.settings.view) this.save({ view: next });
 			stopRecording();
+			drawPage();
 		};
 
 		const load = async () => {
@@ -292,6 +319,7 @@ export class Tracker extends Addon {
 			// a map's button: Recent plays, just that map's plays in the recent time (an empty value shows all again)
 			if (target.dataset.only !== undefined) {
 				only = Number(target.dataset.only) || 0;
+				playsShown = PLAYS_BATCH;
 				showPage('plays');
 				renderLists();
 				playsList.scrollTop = 0;

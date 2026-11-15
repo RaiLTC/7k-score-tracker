@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.24] - 2026-11-15
+
+### Changed
+
+- Lighter on resources: Recent plays shows 50 plays at a time and adds the next 50 as you scroll down, and only the tab you're looking at is drawn
+
 ## [0.1.23] - 2026-11-15
 
 ### Changed

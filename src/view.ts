@@ -72,8 +72,11 @@ const trend = (latest: number, previous: number) => {
 const xpCell = (latest: number, previous: number) =>
 	`<span${previous > 0 && latest !== previous ? ` class="xp-${latest > previous ? 'up' : 'down'}"` : ''}>${xpText(latest)}${trend(latest, previous)}</span>`;
 
-/** Recent plays; a play older than `since` is grayed out. With `only`, just that map's plays since then. */
-export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, since = 0, staleText = '', only = 0, empty: string = TEXT.noPlays): string => {
+/** The plays Recent plays lists: all of them, or with `only`, just that map's plays since `since`. */
+export const listedPlays = (all: Play[], since: number, only: number): Play[] => (only ? all.filter((p) => p.beatmapId === only && p.playedAt >= since) : all);
+
+/** Recent plays, `count` rows from `start` (the head row with the first batch); a play older than `since` is grayed out. */
+export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, since = 0, staleText = '', only = 0, empty: string = TEXT.noPlays, start = 0, count = Infinity): string => {
 	// each play's XP against the play before it on the same map and rate (newest first, so walk from the oldest)
 	const before = new Map<Play, number>(), last = new Map<string, number>();
 	for (let i = all.length - 1; i >= 0; i--) {
@@ -82,10 +85,11 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 		before.set(p, last.get(key) ?? 0);
 		last.set(key, p.total);
 	}
-	const plays = only ? all.filter((p) => p.beatmapId === only && p.playedAt >= since) : all;
-	if (!plays.length) return `<div class="empty">${esc(empty)}</div>`;
+	const listed = listedPlays(all, since, only);
+	if (!listed.length) return start ? '' : `<div class="empty">${esc(empty)}</div>`;
+	const plays = listed.slice(start, start + count);
 	const c = TEXT.cols;
-	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${plays.map((p) => {
+	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
 		// the play's XP over its length (the map's length at the play's rate)
 		const minutes = p.info && p.info.lengthSec > 0 ? p.info.lengthSec / (num(p.rate) || 1) / 60 : 0;
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
