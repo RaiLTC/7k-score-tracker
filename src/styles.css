@@ -124,6 +124,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .num-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .legend-list, .top-skills { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; }
 .legend-list span, .top-skills span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+/* each skill in the Skills box is a switch: off, its maps are hidden (struck through, gray dot) */
+.legend-skill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 6px; margin: -2px -6px; color: var(--text); white-space: nowrap; background: none; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+.legend-skill:hover { background: var(--hover); }
+.legend-skill[aria-pressed='false'] { color: #6b6c75; text-decoration: line-through; }
+.legend-skill[aria-pressed='false'] .dot { background: #3a3b45; }
 .top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 4px 0; font-size: 11px; line-height: 1.35; min-width: 0; }
 .top-skills span { overflow: hidden; text-overflow: ellipsis; }
 

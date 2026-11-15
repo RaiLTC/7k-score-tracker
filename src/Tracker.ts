@@ -4,7 +4,7 @@
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { TrackerError, latestMark, recent7k, savePlaylist } from './data.js';
-import { type Play, type Search, bestMaps, fitsSearch, parseSearch, searching } from './logic.js';
+import { type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, searching } from './logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
@@ -94,7 +94,7 @@ export class Tracker extends Addon {
 				<div class="search"><input type="search" class="search-field" placeholder="${TEXT.search}" aria-label="${TEXT.search}" title="${TEXT.searchHelp}" autocomplete="off" spellcheck="false" data-search></div>
 				<div class="panels">
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span><span class="filter" data-filter hidden><span data-filter-name></span><button type="button" class="btn small" data-only="">${TEXT.showAll}</button></span></div><div class="list" data-list="plays"></div></section>
-					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span></div><div class="legend-list">${legendHtml()}</div></section>
+					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span><span class="muted">${TEXT.skillsNote}</span></div><div class="legend-list">${legendHtml()}</div></section>
 					<section class="card best recent-best" hidden><div class="card-head"><span class="title" data-recent-title></span><span class="muted" data-recent-note></span><button type="button" class="btn small save-playlist" data-action="save-playlist" title="${TEXT.savePlaylistHelp}">${TEXT.savePlaylist}</button></div><div class="list" data-list="recent"></div></section>
 					<section class="card best" hidden><div class="card-head"><span class="title">${TEXT.best}</span><span class="muted" data-best-note></span></div><div class="list" data-list="best"></div></section>
 					<section class="card by-skill" hidden><div class="card-head"><span class="title">${TEXT.bySkill}</span><span class="muted">${TEXT.bySkillNote}</span></div><div class="list" data-list="skills"></div></section>
@@ -140,6 +140,7 @@ export class Tracker extends Addon {
 			win.style.setProperty('--on-accent', onAccent(accent));
 			for (const b of root.querySelectorAll<HTMLElement>('[data-set]')) b.setAttribute('aria-checked', String(String(s[b.dataset.set as keyof Settings]) === b.dataset.value));
 			for (const b of root.querySelectorAll<HTMLElement>('[data-accent]')) b.setAttribute('aria-checked', String(b.dataset.accent === s.accent));
+			for (const b of root.querySelectorAll<HTMLElement>('[data-skill]')) b.setAttribute('aria-pressed', String(!s.hidden.includes(b.dataset.skill!)));
 			$('.swatches .custom').style.background = s.accent === 'custom' ? s.customAccent : '';
 			customColor.value = s.customAccent;
 			for (const input of numbers) input.value = String(s[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
@@ -155,6 +156,9 @@ export class Tracker extends Addon {
 		const keepPlay = () => (searching(query) ? (p: Play) => fitsSearch(query, p.info, p.beatmapId, p.rate, p.gains) : undefined);
 		const keepMaps = <T extends { info: Play['info'], beatmapId: number, rate: number, gains: Play['gains'] }>(maps: T[]) =>
 			(searching(query) ? maps.filter((m) => fitsSearch(query, m.info, m.beatmapId, m.rate, m.gains)) : maps);
+		/** Most effective maps and the recent list leave out maps whose main skill is hidden in the Skills box. */
+		const shownSkills = <T extends { gains: Play['gains'] }>(maps: T[]) =>
+			(this.settings.hidden.length ? maps.filter((m) => !this.settings.hidden.includes(mainSkill(m.gains))) : maps);
 		/** Recent plays are drawn 50 at a time; scrolling near the end adds the next 50. */
 		let playsShown = PLAYS_BATCH;
 		/** The tabs drawn from the current plays; the others are drawn when they're opened. */
@@ -183,9 +187,9 @@ export class Tracker extends Addon {
 				// with old plays left out, only the newer ones count (a map played only before then drops out)
 				const kept = s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays;
 				const none = searching(query) ? TEXT.noMatch : undefined;
-				bestList.innerHTML = bestHtml(keepMaps(bestMaps(kept, s.avgOf)).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title), none);
+				bestList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(kept, s.avgOf))).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title), none);
 				// the recent list counts only the plays inside the time
-				recentList.innerHTML = bestHtml(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity)).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title));
+				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title));
 			} else {
 				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(plays, s.avgOf)), s.unit);
 			}
@@ -205,7 +209,7 @@ export class Tracker extends Addon {
 			if (!plays || button.dataset.busy) return;
 			button.dataset.busy = '1';
 			const s = this.settings, since = Date.now() - recentMs(s);
-			const maps = bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity).slice(0, s.recentCount);
+			const maps = shownSkills(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity)).slice(0, s.recentCount);
 			let text = TEXT.saved;
 			try {
 				if (!maps.length) throw new Error('no maps');
@@ -387,8 +391,16 @@ export class Tracker extends Addon {
 
 		// one listener for the header and settings buttons, one per list for opening a row's breakdown
 		this.on(win, 'click', (e) => {
-			const target = (e.target as Element).closest<HTMLElement>('[data-view], [data-action], [data-set], [data-accent], [data-only]');
+			const target = (e.target as Element).closest<HTMLElement>('[data-view], [data-action], [data-set], [data-accent], [data-only], [data-skill]');
 			if (!target) return;
+			// a skill in the Skills box: hide its maps, or show them again
+			if (target.dataset.skill) {
+				const sk = target.dataset.skill, hidden = this.settings.hidden;
+				this.save({ hidden: hidden.includes(sk) ? hidden.filter((x) => x !== sk) : [...hidden, sk] });
+				applyLook();
+				renderLists();
+				return;
+			}
 			// a map's button: Recent plays, just that map's plays in the recent time (an empty value shows all again)
 			if (target.dataset.only !== undefined) {
 				only = Number(target.dataset.only) || 0;

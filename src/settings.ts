@@ -2,6 +2,7 @@
 // a setting added later simply starts at its default.
 
 import { createSettings, parseHotkey } from '@oss-idle/addon-sdk';
+import { SKILLS_7K } from './logic.js';
 
 export type View = 'plays' | 'best' | 'skills';
 export type Unit = 'h' | 'm' | 's';
@@ -15,6 +16,8 @@ export type Settings = {
 	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, accent: AccentId, customAccent: string,
 	recent: RecentShow, recentFor: number, recentUnit: RecentUnit, recentCount: number, bestCount: number, avgOf: number, avgOfRecent: number,
 	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit,
+	/** Skills whose maps (the ones they give the most XP to) are left out of Most effective maps and the recent list. */
+	hidden: string[],
 	/** The game playlist the add-on saves into (0 until the first save). */
 	playlistId: number,
 };
@@ -25,7 +28,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', hidden: [], playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -71,6 +74,7 @@ export const loadSettings = (): Settings => {
 		oldOn: oneOf(s.oldOn, ['off', 'on'], DEFAULTS.oldOn),
 		oldFor: wholeOf(s.oldFor) ?? DEFAULTS.oldFor,
 		oldUnit: oneOf(s.oldUnit, ['m', 'h'], DEFAULTS.oldUnit),
+		hidden: Array.isArray(s.hidden) ? s.hidden.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],
 		playlistId: Number.isInteger(s.playlistId) && s.playlistId > 0 ? s.playlistId : 0,
 		recentUnit: oneOf(s.recentUnit, ['m', 'h'], DEFAULTS.recentUnit),
 	};

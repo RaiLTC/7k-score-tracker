@@ -38,7 +38,7 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 };
 
 /** The Skills box: which colour is which skill. */
-export const legendHtml = (): string => SKILLS_7K.map((sk) => `<span><i class="dot sk-${sk}"></i>${skillName(sk)}</span>`).join('');
+export const legendHtml = (): string => SKILLS_7K.map((sk) => `<button type="button" class="legend-skill" data-skill="${sk}" aria-pressed="true" title="${TEXT.hideSkill(skillName(sk))}"><i class="dot sk-${sk}"></i>${skillName(sk)}</button>`).join('');
 
 /** Under a clicked row: the total, then each skill's XP (for a map, its latest play), biggest first, with its share. */
 const breakdown = (gains: Gains, per = 1, label = '', mapId = 0) => {

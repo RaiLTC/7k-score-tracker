@@ -122,7 +122,8 @@ export const lengthOf = (v) => {
 
 /**
  * What's typed in the search box: plain words (each must be in the map's title or difficulty) and tags,
- * like length>1m30, length<=90, skill:stamina, stars>=5 or star-rating=4.5. A tag that can't be read is a word.
+ * like length>1m30, length<=90, skill:stamina, skill!=accuracy, stars>=5 or star-rating=4.5 (!= means not). A tag
+ * that can't be read is a word.
  * @param {string} text
  * @returns {Search}
  */
@@ -130,7 +131,7 @@ export const parseSearch = (text) => {
 	/** @type {Search} */
 	const out = { words: [], tags: [] };
 	for (const part of text.toLowerCase().split(/\s+/).filter(Boolean)) {
-		const m = /^([a-z-]+)(>=|<=|>|<|=|:)(.+)$/.exec(part);
+		const m = /^([a-z-]+)(!=|>=|<=|>|<|=|:)(.+)$/.exec(part);
 		const [, name = '', op = '', raw = ''] = m || [];
 		const key = TAG_KEYS[name];
 		if (key) {
@@ -153,8 +154,12 @@ export const topSkills = (gains) => {
 		.filter((sk, i) => i === 0 || num(gains[sk]) / total >= 0.15).slice(0, 2);
 };
 
+/** The skill a play or map gave the most XP to, or ''. @param {Gains} gains */
+export const mainSkill = (gains) => topSkills(gains)[0] ?? '';
+
 /** @param {number} a @param {string} op @param {number} b @param {number} step */
-const compare = (a, op, b, step) => (op === '>' ? a > b : op === '<' ? a < b : op === '>=' ? a >= b : op === '<=' ? a <= b : a >= b && a < b + step);
+const compare = (a, op, b, step) => (op === '>' ? a > b : op === '<' ? a < b : op === '>=' ? a >= b : op === '<=' ? a <= b
+	: op === '!=' ? !(a >= b && a < b + step) : a >= b && a < b + step);
 
 /**
  * Whether a map (at a rate, with the XP it gave per skill) fits the search. Length is at that rate; a map the
@@ -167,7 +172,8 @@ export const fitsSearch = (q, info, beatmapId, rate, gains) => {
 	for (const t of q.tags) {
 		if (t.key === 'skill') {
 			const want = String(t.value);
-			if (!topSkills(gains).some((sk) => sk.startsWith(want) || (want === 'ln' && sk === 'ln'))) return false;
+			// skill:stamina: one of the map's top 2 skills; skill!=accuracy: not the skill it gives the most XP to
+			if (t.op === '!=' ? mainSkill(gains).startsWith(want) : !topSkills(gains).some((sk) => sk.startsWith(want))) return false;
 		} else if (t.key === 'length') {
 			if (!info || !(info.lengthSec > 0)) return false;
 			// "=" means that whole second

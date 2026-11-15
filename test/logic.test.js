@@ -88,3 +88,14 @@ test('search: words and tags', async () => {
 	assert.ok(!fits('stars>6'));
 	assert.ok(fits('clover length<=2m skill:stam star<6'));
 });
+
+test('search: != means not', async () => {
+	const { parseSearch, fitsSearch } = await import('../src/logic.js');
+	const info = { title: 'Clover', difficulty: 'Another', keys: 7, lengthSec: 120, stars: 5.4 };
+	const fits = (t) => fitsSearch(parseSearch(t), info, 1, 1, { accuracy: 600, speed: 300, jacks: 50 });
+	assert.ok(!fits('skill!=accuracy'));
+	assert.ok(fits('skill!=stamina'));
+	assert.ok(fits('star!=4'));
+	assert.ok(!fits('star!=5'));
+	assert.ok(fits('length!=60'));
+});
