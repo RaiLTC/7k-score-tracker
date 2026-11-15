@@ -41,7 +41,7 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 export const legendHtml = (): string => SKILLS_7K.map((sk) => `<span><i class="dot sk-${sk}"></i>${skillName(sk)}</span>`).join('');
 
 /** Under a clicked row: the total, then each skill's XP (for a map, its latest play), biggest first, with its share. */
-const breakdown = (gains: Gains, per = 1, label = '') => {
+const breakdown = (gains: Gains, per = 1, label = '', mapId = 0) => {
 	const total = totalOf(gains) / per;
 	const parts = SKILLS_7K.map((sk): [string, number] => [sk, num(gains[sk]) / per]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 	const lines = parts.map(([sk, v]) => `<div class="skill-line">
@@ -50,7 +50,8 @@ const breakdown = (gains: Gains, per = 1, label = '') => {
 		<span class="num">${xpText(v)}</span><span class="muted num">${total ? Math.round((v / total) * 100) : 0}%</span>
 	</div>`).join('');
 	const totalLine = total > 0 ? `<div class="skill-line total"><span>${TEXT.total}</span><span></span><span class="num">${xpText(total)}</span><span class="muted num">100%</span></div>` : '';
-	return `<div class="detail" hidden>${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${totalLine}${lines || `<div class="muted">${TEXT.noXp}</div>`}</div>`;
+	const only = mapId ? `<button type="button" class="btn small" data-only="${mapId}">${TEXT.onlyMap}</button>` : '';
+	return `<div class="detail" hidden>${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${totalLine}${lines || `<div class="muted">${TEXT.noXp}</div>`}${only}</div>`;
 };
 
 /** A clickable row; its key lets an open row stay open when the list is drawn again. */
@@ -67,21 +68,35 @@ const trend = (latest: number, previous: number) => {
 	return ` <span class="trend ${cls}" title="${text}" aria-label="${text}">${arrow}</span>`;
 };
 
-export const playsHtml = (plays: Play[], now: number, unit: Unit, as: SkillsAs): string => {
-	if (!plays.length) return `<div class="empty">${TEXT.noPlays}</div>`;
+/** A latest XP: green when it gave more than the play before, red when less, with the trend arrow. */
+const xpCell = (latest: number, previous: number) =>
+	`<span${previous > 0 && latest !== previous ? ` class="xp-${latest > previous ? 'up' : 'down'}"` : ''}>${xpText(latest)}${trend(latest, previous)}</span>`;
+
+/** Recent plays; a play older than `since` is grayed out. With `only`, just that map's plays since then. */
+export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, since = 0, staleText = '', only = 0, empty: string = TEXT.noPlays): string => {
+	// each play's XP against the play before it on the same map and rate (newest first, so walk from the oldest)
+	const before = new Map<Play, number>(), last = new Map<string, number>();
+	for (let i = all.length - 1; i >= 0; i--) {
+		const p = all[i]!, key = `${p.beatmapId}@${num(p.rate) || 1}`;
+		if (p.total <= 0) continue;
+		before.set(p, last.get(key) ?? 0);
+		last.set(key, p.total);
+	}
+	const plays = only ? all.filter((p) => p.beatmapId === only && p.playedAt >= since) : all;
+	if (!plays.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
 	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.skills}</span></div>${plays.map((p) => {
 		// the play's XP over its length (the map's length at the play's rate)
 		const minutes = p.info && p.info.lengthSec > 0 ? p.info.lengthSec / (num(p.rate) || 1) / 60 : 0;
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
-		return `<div ${row(`${p.playedAt}:${p.beatmapId}`)}>
+		return `<div ${row(`${p.playedAt}:${p.beatmapId}`, p.playedAt < since ? staleText : '')}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
 			${mapCell(p.info, p.beatmapId, mods)}
 			<span>${rateText(p.rate)}</span>
-			<span>${p.total > 0 ? xpText(p.total) : '<span class="muted">–</span>'}</span>
+			${p.total > 0 ? xpCell(p.total, before.get(p) ?? 0) : '<span><span class="muted">–</span></span>'}
 			<span class="strong">${p.total > 0 && minutes ? rateXp(p.total / minutes, unit) : '<span class="muted">–</span>'}</span>
 			${skillsCell(p.gains, as)}
-		</div>${breakdown(p.gains)}`;
+		</div>${breakdown(p.gains, 1, '', only ? 0 : p.beatmapId)}`;
 	}).join('')}`;
 };
 
@@ -94,10 +109,10 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
-		<span${m.prevXp > 0 && m.lastXp !== m.prevXp ? ` class="xp-${m.lastXp > m.prevXp ? 'up' : 'down'}"` : ''}>${xpText(m.lastXp)}${trend(m.lastXp, m.prevXp)}</span>
+		${xpCell(m.lastXp, m.prevXp)}
 		<span class="strong">${m.perMinute ? rateXp(m.perMinute, unit) : '<span class="muted">–</span>'}</span>
 		${skillsCell(m.gains, as)}
-	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '')}`).join('')}`;
+	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`).join('')}`;
 };
 
 /** The Skills tab: for each skill, the maps that gave it the most XP per minute of play. */
@@ -111,7 +126,7 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span></div>
 		${top.map((x, i) => `<div class="row">
 			<span class="muted">${i + 1}</span>
-			${mapCell(x.map.info, x.map.beatmapId, '', true)}
+			<button type="button" class="map-link" data-only="${x.map.beatmapId}" title="${TEXT.onlyMap}">${mapCell(x.map.info, x.map.beatmapId, '', true)}</button>
 			<span class="muted">${rateText(x.map.rate)}</span>
 			<span class="muted">${x.map.n}</span>
 			<span>${xpText(x.perPlay)}</span>

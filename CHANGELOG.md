@@ -2,6 +2,21 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.21] - 2026-11-15
+
+### Added
+
+- Recent plays: plays older than your recent time are grayed out, and XP is green or red against your play before on the map
+- Show a map's recent plays on their own: open a row and select Show its recent plays, or select a map's name in the Skills tab. Show all plays goes back
+
+### Changed
+
+- A fresher look: darker background with a slight gradient, card borders, bolder titles with an accent line under them
+
+### Fixed
+
+- Rows in the recent section of Most effective maps couldn't be opened
+
 ## [0.1.20] - 2026-11-15
 
 ### Changed

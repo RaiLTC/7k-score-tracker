@@ -5,7 +5,7 @@
  */
 
 :host {
-	--bg: #17181d; --card: #202128; --field: #17181d; --hover: #26272f; --line: #2c2d36; --line-strong: #33343d;
+	--bg: #15161c; --card: #1c1d25; --field: #15161c; --hover: #24252f; --line: #262732; --line-strong: #33343d;
 	--text: #e8e8ec; --muted: #8b8c96; --accent: #d6d6dc; --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent); --accent-ink: #e8e8ec;
 	--danger: #e24b4a;
 	font-size: 13px;
@@ -16,7 +16,7 @@
 	position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
 	width: min(900px, 94vw); height: min(880px, 92vh); display: flex; flex-direction: column; gap: 10px; padding: 12px;
 	font-family: inherit; font-size: 13px; line-height: 1.4; color: var(--text);
-	background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
+	background: linear-gradient(180deg, #1a1c26, var(--bg)); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
 	pointer-events: auto;
 }
 .window[hidden] { display: none; }
@@ -33,6 +33,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .spacer { margin-left: auto; }
 .btn { height: 30px; padding: 0 14px; background: none; border: 1px solid #3a3b45; border-radius: 8px; }
 .btn:hover { background: var(--hover); }
+.btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
+.detail .btn.small { margin-top: 8px; }
+/* Recent plays showing one map: its name and a way back to all plays */
+.filter { display: inline-flex; align-items: baseline; gap: 10px; margin-left: auto; color: var(--muted); min-width: 0; }
+/* Skills tab: the map name opens its recent plays */
+.map-link { display: flex; min-width: 0; padding: 0; color: inherit; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
+.map-link:hover .map > span:first-child { text-decoration: underline; }
 /* the Button style setting */
 .window[data-buttons='tinted'] .btn { border: 0; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .window[data-buttons='tinted'] .btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
@@ -49,9 +56,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* one view at a time, full width, so map names have room */
 .panels { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.card { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px 14px; background: var(--card); border-radius: 10px; }
+.card { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 10px 14px; background: var(--card); border: 1px solid #262833; border-radius: 10px; }
 .card[hidden], [data-unit-switch][hidden] { display: none; }
-.card-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; }
+.card-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; margin-bottom: 6px; }
+/* each card's title: bolder, with an accent line under it that fades out */
+.card-head { border-bottom: 2px solid transparent; border-image: linear-gradient(90deg, var(--accent), transparent 40%) 1; }
+.card-head .title { font-weight: 600; }
 /* the list runs to the card's edges, so a highlighted row does too */
 .list { margin: 0 -14px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 .list::-webkit-scrollbar { width: 6px; }

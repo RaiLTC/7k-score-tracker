@@ -79,7 +79,7 @@ export class Tracker extends Addon {
 					<button type="button" class="close" data-action="close" aria-label="${TEXT.close}" title="${TEXT.close}">✕</button>
 				</div>
 				<div class="panels">
-					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span></div><div class="list" data-list="plays"></div></section>
+					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span><span class="filter" data-filter hidden><span data-filter-name></span><button type="button" class="btn small" data-only="">${TEXT.showAll}</button></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span></div><div class="legend-list">${legendHtml()}</div></section>
 					<section class="card best recent-best" hidden><div class="card-head"><span class="title" data-recent-title></span><span class="muted" data-recent-note></span></div><div class="list" data-list="recent"></div></section>
 					<section class="card best" hidden><div class="card-head"><span class="title">${TEXT.best}</span><span class="muted" data-best-note></span></div><div class="list" data-list="best"></div></section>
@@ -131,12 +131,19 @@ export class Tracker extends Addon {
 		};
 
 		let plays: Play[] | null = null;
+		/** A map whose recent plays alone are shown in Recent plays, or 0 for all. */
+		let only = 0;
 		const renderLists = () => {
 			if (!plays) return;
 			// what's open stays open when the lists are drawn again
 			const open = new Set([...root.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')].map((el) => el.dataset.key));
-			playsList.innerHTML = playsHtml(plays, Date.now(), this.settings.unit, this.settings.skillsAs);
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, only ? TEXT.noMapPlays(title) : TEXT.noPlays);
+			const shown = only ? plays.filter((p) => p.beatmapId === only && p.playedAt >= since) : plays;
+			count.textContent = shown.length ? `· ${shown.length}` : '';
+			const info = only ? plays.find((p) => p.beatmapId === only)?.info : undefined;
+			$('[data-filter-name]').textContent = only ? `${info ? info.title : TEXT.map(only)} · ${title}` : '';
+			$('[data-filter]').hidden = !only;
 			const maps = bestMaps(plays);
 			bestList.innerHTML = bestHtml(maps.slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
 			// the recent list counts only the plays inside the time
@@ -185,7 +192,6 @@ export class Tracker extends Addon {
 				const result = await recent7k(api);
 				if (ticket !== this.loading) return;
 				plays = result;
-				count.textContent = plays.length ? `· ${plays.length}` : '';
 				renderLists();
 			} catch (e) {
 				if (ticket !== this.loading) return;
@@ -279,8 +285,16 @@ export class Tracker extends Addon {
 
 		// one listener for the header and settings buttons, one per list for opening a row's breakdown
 		this.on(win, 'click', (e) => {
-			const target = (e.target as Element).closest<HTMLElement>('[data-view], [data-action], [data-set], [data-accent]');
+			const target = (e.target as Element).closest<HTMLElement>('[data-view], [data-action], [data-set], [data-accent], [data-only]');
 			if (!target) return;
+			// a map's button: Recent plays, just that map's plays in the recent time (an empty value shows all again)
+			if (target.dataset.only !== undefined) {
+				only = Number(target.dataset.only) || 0;
+				showPage('plays');
+				renderLists();
+				playsList.scrollTop = 0;
+				return;
+			}
 			const { view, set, value, accent, action } = target.dataset;
 			if (view) { showPage(view as View); return; }
 			if (set) {
@@ -320,7 +334,7 @@ export class Tracker extends Addon {
 			detail.hidden = !detail.hidden;
 			row.setAttribute('aria-expanded', String(!detail.hidden));
 		};
-		for (const list of [playsList, bestList]) {
+		for (const list of [playsList, bestList, recentList]) {
 			this.on(list, 'click', toggleRow);
 			this.on(list, 'keydown', toggleRow);
 		}
