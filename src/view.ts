@@ -4,7 +4,7 @@
 import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from './logic.js';
 import { strainOf } from './data.js';
 import type { SkillsAs, Unit } from './settings.js';
-import { arrowsOf } from './strain.js';
+import { arrowsOf, trendOf } from './strain.js';
 import { TEXT } from './text.js';
 
 // Each skill's colour is a class (sk-speed, …) in styles.css; only sizes that come from data are inline.
@@ -93,15 +93,22 @@ const gradeOf = (values: number[]) => {
 const rateCell = (perMinute: number, unit: Unit, grade?: (v: number) => string) =>
 	(perMinute ? `<span class="strong"${grade ? ` style="color:${grade(perMinute)}"` : ''}>${rateXp(perMinute, unit)}</span>` : '<span class="strong"><span class="muted">–</span></span>');
 
-/** How a play moved your strain: strain minutes per minute of the map, + warming (orange, › arrows) or − cooling
- *  (blue, ‹ arrows). The number stays in the middle of the column, the arrows on either side. */
-const strainCell = (playedAt: number) => {
-	const v = strainOf(playedAt);
-	if (v === undefined) return `<span class="strain"><span></span><span class="muted" title="${TEXT.noStrain}">–</span><span></span></span>`;
-	// signed only when it shows as more than 0.0
-	const shown = Math.round(v * 10) / 10;
-	const arrows = arrowsOf(v), way = arrows > 0 ? 'warm' : arrows < 0 ? 'cool' : 'muted';
-	return `<span class="strain" title="${TEXT.strainHelp}"><span class="arrows cool">${arrows < 0 ? '‹'.repeat(-arrows) : ''}</span><span class="${way}">${shown > 0 ? '+' : shown < 0 ? '−' : ''}${Math.abs(shown).toFixed(1)}</span><span class="arrows warm">${arrows > 0 ? '›'.repeat(arrows) : ''}</span></span>`;
+/** The strain bar's zones and colours, as Queue Helper draws them: Cold, Warming, Peak, Pushing, Fatigued. */
+const ZONES: [to: number, color: string][] = [[0.2, '#4f9cf5'], [0.4, '#5fc3c0'], [0.6, '#e8c147'], [0.8, '#f0883e'], [Infinity, '#c084fc']];
+/** Minutes as m:ss. */
+const clock = (min: number) => { const sec = Math.round(min * 60); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+
+/** A play's strain, as Queue Helper shows it, in two cells: how much of the map strained you against its length,
+ *  and the strain bar after it in its zone's colour, with the game's arrows (› straining, ‹ resting). The % stays in
+ *  the middle of its column, the arrows on either side. */
+const strainCells = (playedAt: number) => {
+	const x = strainOf(playedAt);
+	const none = `<span class="muted" title="${TEXT.noStrain}">–</span>`;
+	const strained = x?.strained !== undefined && x.len ? `<span class="strained" title="${TEXT.strainHelp}">${clock(x.strained)} <span class="muted">/ ${clock(x.len)}</span></span>` : none;
+	if (x?.bar === undefined) return `${strained}<span class="strain"><span></span>${none}<span></span></span>`;
+	const arrows = x.strained !== undefined && x.len ? trendOf(x.len, x.strained) : arrowsOf(x.v ?? 0);
+	const bar = `<span style="color:${ZONES.find(([to]) => x.bar! < to)![1]}">${Math.round(x.bar * 100)}%</span>`;
+	return `${strained}<span class="strain" title="${TEXT.barHelp}"><span class="arrows cool">${arrows < 0 ? '‹'.repeat(-arrows) : ''}</span>${bar}<span class="arrows warm">${arrows > 0 ? '›'.repeat(arrows) : ''}</span></span>`;
 };
 
 /** The plays Recent plays lists: all of them, or with `only`, just that map's plays since `since`. */
@@ -134,7 +141,7 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 	};
 	// coloured against the plays not grayed out, in the whole list (not only this batch)
 	const grade = gradeOf(listed.filter((p) => p.playedAt >= since).map(perMinuteOf));
-	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
+	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.bar}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
 		return `<div ${row(`${p.playedAt}:${p.beatmapId}`, p.playedAt < since ? staleText : '')}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
@@ -143,7 +150,7 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 			<span class="muted" title="${TEXT.playsOnMap}">${timesPlayed.get(p.beatmapId) ?? 1}</span>
 			${p.total > 0 ? xpCell(p.total, before.get(p) ?? 0) : '<span><span class="muted">–</span></span>'}
 			${rateCell(perMinuteOf(p), unit, p.playedAt < since ? undefined : grade)}
-			${strainCell(p.playedAt)}
+			${strainCells(p.playedAt)}
 			${skillsCell(p.gains, as)}
 		</div>${breakdown(p.gains, 1, '', only ? 0 : p.beatmapId)}`;
 	}).join('')}`;
@@ -154,14 +161,14 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
 	const grade = gradeOf(maps.filter((m) => m.lastAt >= since).map((m) => m.perMinute));
-	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
+	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.bar}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
 		<span class="muted">${i + 1}</span>
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
 		${xpCell(m.lastXp, m.prevXp)}
 		${rateCell(m.perMinute, unit, m.lastAt < since ? undefined : grade)}
-		${strainCell(m.lastAt)}
+		${strainCells(m.lastAt)}
 		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`).join('')}`;
 };
@@ -174,7 +181,7 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
 	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
-		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
+		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.bar}</span></div>
 		${((grade) => top.map((x, i) => `<div class="row">
 			<span class="muted">${i + 1}</span>
 			<button type="button" class="map-link" data-only="${x.map.beatmapId}" title="${TEXT.onlyMap}">${mapCell(x.map.info, x.map.beatmapId, '', true)}</button>
@@ -182,7 +189,7 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 			<span class="muted">${x.map.n}</span>
 			<span>${xpText(x.perPlay)}</span>
 			${rateCell(x.perMinute, unit, grade)}
-			${strainCell(x.map.lastAt)}
+			${strainCells(x.map.lastAt)}
 		</div>`).join(''))(gradeOf(top.map((x) => x.perMinute)))}
 	</details>`).join('');
 };

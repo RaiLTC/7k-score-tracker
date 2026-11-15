@@ -8,8 +8,8 @@
 // - your strain: the game's API, asked once when a new play shows up (the game keeps no strain per play).
 
 import { gameDb, type SqlValue } from '@oss-idle/addon-sdk';
-import { type MapInfo, type Play, is7kPlay, num, ONLY_7K, parseGains, totalOf } from './logic.js';
-import { strainPerMinute } from './strain.js';
+import { type MapInfo, type Play, SKILLS_7K, is7kPlay, num, ONLY_7K, parseGains, totalOf } from './logic.js';
+import { restedStrain, strainPerMinute } from './strain.js';
 import { TEXT } from './text.js';
 
 const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
@@ -18,7 +18,10 @@ const READ_PLAYS = 2000;
 const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 20000;
 const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v2';
 
-type Api = { me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number } } | null | undefined> };
+type Api = {
+	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number } } | null | undefined>,
+	simulate?: (request: Record<string, unknown>) => Promise<{ strained_minutes?: number } | null | undefined>,
+};
 /** id → [title, difficulty, keys, length in seconds]; when it was fetched and last tried; maps it didn't have:
  *  id → [tries, when to try again]. */
 type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number, number]>, missing?: Record<number, [number, number]> };
@@ -206,8 +209,14 @@ const STRAIN_KEY = '7k-score-tracker:strain';
 const STRAIN_KEEP = 2000;
 /** How many checks to wait for the game to count a new play's strain, when it hasn't changed yet. */
 const STRAIN_WAITS = 2;
-/** The strain when last checked, and each play's change per minute of its map (by when it was played). */
-type StrainStore = { last?: [minutes: number, at: number], waits?: number, plays: Record<number, number> };
+/** A play's time and the game's strain time count as the same play this close together. */
+const STRAIN_NEAR = 3 * 60e3;
+/** The strain as the game last set it (at the end of a play) and when, and each play's change per minute of its
+ *  map (by when it was played); `prior` is the one before `game`. `last` was 0.1.35's, taken when the tracker checked: no longer used. */
+type StrainStore = { game?: [minutes: number, at: number], prior?: [minutes: number, at: number], last?: unknown, waits?: number, plays: Record<number, number | StrainPlay> };
+/** A play's strain: the change per minute of the map (`v`), the strain bar after it (0-1), the minutes of it that
+ *  strained you (from the game's simulator) and its length in minutes. 0.1.35 kept only the change, as a number. */
+export type StrainPlay = { v?: number, bar?: number, strained?: number, len?: number };
 let strainStore: StrainStore | undefined;
 
 const strainStoreOf = (): StrainStore => {
@@ -224,8 +233,33 @@ const saveStrain = (s: StrainStore) => {
 	try { localStorage.setItem(STRAIN_KEY, JSON.stringify(s)); } catch { /* kept for this session only */ }
 };
 
-/** A play's strain minutes per minute of its map, or undefined when it wasn't noted (played before this was added). */
-export const strainOf = (playedAt: number): number | undefined => strainStoreOf().plays[playedAt];
+/** A play's strain, or undefined when it wasn't noted (played before the tracker noted strain). */
+export const strainOf = (playedAt: number): StrainPlay | undefined => {
+	const x = strainStoreOf().plays[playedAt];
+	return typeof x === 'number' ? { v: x } : x;
+};
+
+/** How many of a play's minutes strained you, asked of the game's simulator with your character as it is now
+ *  (right after the play) and the strain you had when it started; undefined when it can't be asked. */
+const strainedOf = async (api: Api, id: number, play: Record<string, SqlValue>, strainMin: number): Promise<number | undefined> => {
+	if (!api.simulate) return undefined;
+	const row = (await rowsOf('SELECT * FROM character WHERE id = ? LIMIT 1', [id]))?.[0];
+	if (!row) return undefined;
+	const tries = num((await rowsOf('SELECT COUNT(*) AS n FROM score WHERE characterId = ? AND beatmapId = ?', [id, num(play.beatmapId)]))?.[0]?.n);
+	const skills = Object.fromEntries(SKILLS_7K.map((sk) => [sk, {
+		level: Math.floor(num(row[sk])), xp: num(row[`${sk}XP`]), lifetime_xp: num(row[`${sk}LifetimeXp`]),
+		prestige: num(row[`${sk}Prestige`]), upgrades: num(row[`${sk}Upgrades`]), overdrive: num(row[`${sk}Overdrive`]),
+	}]));
+	const answer = await Promise.race([
+		api.simulate({
+			beatmap_id: num(play.beatmapId), rate: num(play.rate) || 1, mods: String(play.mods ?? '').toUpperCase().match(/[A-Z]{2}/g) ?? [],
+			generation: num(row.generation) || 1, strain_minutes: Math.max(0, Math.min(420, strainMin)), map_plays: Math.max(0, tries - 1), skills,
+		}),
+		new Promise<undefined>((resolve) => { setTimeout(() => resolve(undefined), 20e3); }),
+	]);
+	const v = answer?.strained_minutes;
+	return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+};
 
 /**
  * Notes how your newest play changed your strain: the strain now against the last check, over the map's length.
@@ -234,29 +268,49 @@ export const strainOf = (playedAt: number): number | undefined => strainStoreOf(
 export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 	let me = null;
 	try { me = await api?.me?.({ ruleset: 'mania7k' }); } catch { me = null; }
-	const minutes = me?.fatigue?.minutes;
+	// the game's strain is as it set it at the end of your last play, with when (`at`), not as it is now
+	const minutes = me?.fatigue?.minutes, setAt = Date.parse(String(me?.fatigue?.at ?? ''));
 	const id = num(me?.character_id);
-	if (typeof minutes !== 'number' || !id) return false;
-	const s = strainStoreOf(), now = Date.now(), before = s.last;
-	const newest = (await rowsOf('SELECT playedAt, beatmapId, rate FROM score WHERE characterId = ? ORDER BY playedAt DESC LIMIT 1', [id]))?.[0];
+	if (typeof minutes !== 'number' || !Number.isFinite(setAt) || !id) return false;
+	const s = strainStoreOf();
+	// when the game sets a new strain, the one it had is the one before it
+	if (s.game && s.game[1] !== setAt) s.prior = s.game;
+	s.game = [minutes, setAt];
+	delete s.last;
+	const newest = (await rowsOf('SELECT playedAt, beatmapId, rate, mods FROM score WHERE characterId = ? ORDER BY playedAt DESC LIMIT 1', [id]))?.[0];
 	const at = num(newest?.playedAt);
 	let noted = false;
 	if (newest && !(at in s.plays)) {
-		// the game may not have counted the play's strain yet: when it hasn't changed since before the play, wait a check
-		if (before && before[1] < at && before[0] === minutes && (s.waits ?? 0) < STRAIN_WAITS) {
+		const info = infoOf(await mapCatalog([]), num(newest.beatmapId));
+		const lengthMin = info && info.lengthSec > 0 ? info.lengthSec / (num(newest.rate) || 1) / 60 : 0;
+		// the game's strain is this play's when it was set as the play ended (closer than half the map)
+		const near = Math.abs(setAt - at) <= Math.min(STRAIN_NEAR, lengthMin * 30e3);
+		// not yet: the game hasn't counted the play's strain, wait a check
+		if (lengthMin && !near && setAt < at && (s.waits ?? 0) < STRAIN_WAITS) {
 			s.waits = (s.waits ?? 0) + 1;
 			saveStrain(s);
 			return false;
 		}
-		const info = infoOf(await mapCatalog([]), num(newest.beatmapId));
-		const lengthMin = info && info.lengthSec > 0 ? info.lengthSec / (num(newest.rate) || 1) / 60 : 0;
-		// only with a check from during the play (or just before it): an older one would count the rest before it too
-		if (before && lengthMin && before[1] < at && at - before[1] <= lengthMin * 60e3 + 60e3) {
-			s.plays[at] = Math.round(strainPerMinute(before[0], minutes, lengthMin) * 100) / 100;
-			noted = true;
+		if (near) {
+			// the bar after the play, as the game shows it
+			const bar = me?.warmup?.bar;
+			const play: StrainPlay = { len: Math.round(lengthMin * 1000) / 1000, ...(typeof bar === 'number' ? { bar: Math.round(bar * 1000) / 1000 } : {}) };
+			// before = the strain the last play left, rested until this play started; after = this play's
+			const before = s.prior, start = setAt - lengthMin * 60e3;
+			const was = before && before[1] < setAt ? restedStrain(before[0], (start - before[1]) / 60e3) : undefined;
+			if (was !== undefined) play.v = Math.round(strainPerMinute(was, minutes, lengthMin) * 100) / 100;
+			s.plays[at] = play;
+			s.waits = 0;
+			saveStrain(s);
+			// how much of it strained you: the simulator's answer comes later, so the play is saved without it first
+			const strained = await strainedOf(api!, id, newest, was ?? minutes).catch(() => undefined);
+			if (strained !== undefined) {
+				play.strained = Math.round(strained * 1000) / 1000;
+				saveStrain(s);
+			}
+			return true;
 		}
 	}
-	s.last = [minutes, now];
 	s.waits = 0;
 	saveStrain(s);
 	return noted;

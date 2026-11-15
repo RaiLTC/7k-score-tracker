@@ -72,10 +72,11 @@ export const TEXT = {
 	trendDown: (pct: number) => `${pct}% less XP than your play before`,
 	trendUp: (pct: number) => `${pct}% more XP than your play before`,
 	map: (id: number) => `Map ${id}`,
-	strainHelp: 'Strain minutes gained (+) or rested (−) per minute of the map',
+	strainHelp: 'How much of the map strained you, of its length (from the game\'s simulator)',
+	barHelp: 'The strain bar after the play; › straining, ‹ resting',
 	noStrain: 'Not noted: played before the tracker noted strain, or after a break',
 	cols: {
-		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', strain: 'Strain', skills: 'Skills',
+		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', strain: 'Strain / length', bar: 'Bar', skills: 'Skills',
 		number: '#', plays: 'Plays', totalXp: 'Total XP', perPlay: 'Per play',
 	},
 	skills: {

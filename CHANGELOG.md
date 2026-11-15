@@ -2,6 +2,16 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.36] - 2026-11-15
+
+### Changed
+
+- Strain shows as in Queue Helper: Strain / length (how much of the map strained you, from the game's simulator) and Bar (the strain bar after the play, in its zone's colour, with the game's arrows)
+
+### Fixed
+
+- Strain is worked out from when the game counted each play's strain, not from when the tracker checked
+
 ## [0.1.35] - 2026-11-15
 
 ### Added
