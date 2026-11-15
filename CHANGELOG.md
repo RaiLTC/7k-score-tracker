@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.28] - 2026-11-15
+
+### Added
+
+- Save as playlist: saves the recent list's maps, at their rates, to a 7K playlist in the game. Saving again replaces its maps; no other playlist is touched
+- Plays averaged: how many of your latest plays per map the XP rates use. 1 by default for Most effective maps and Skills, all plays (0) for the recent list
+
 ## [0.1.27] - 2026-11-15
 
 ### Fixed

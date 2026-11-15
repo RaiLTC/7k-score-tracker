@@ -117,6 +117,8 @@ const infoOf = (cat: Catalog, id: number): MapInfo | undefined => {
 // ---- your plays ----
 
 let characterId = 0;
+/** The character the plays were read for (the playlist is saved for it too). */
+let playingAs = 0;
 
 /** Rows from the game's database (through the SDK, on its read path), or null while the game hasn't opened it. */
 const rowsOf = async (sql: string, params: SqlValue[]): Promise<Record<string, SqlValue>[] | null> => {
@@ -147,6 +149,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 		id = num(guest?.[0]?.id);
 	}
 	if (!id) throw new TrackerError(TEXT.errors.noCharacter);
+	playingAs = id;
 	const rows = await rowsOf(
 		`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, x.gains AS gains
 		 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
@@ -165,4 +168,31 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains) });
 	}
 	return out;
+};
+
+// ---- your playlist ----
+
+/**
+ * Saves maps (best first) into the add-on's own game playlist, named `name`, and returns its id. The first save makes
+ * the playlist; later saves replace its maps. Only that playlist is ever written: the others are never touched.
+ */
+export const savePlaylist = async (id: number, name: string, maps: { beatmapId: number, rate: number }[]): Promise<number> => {
+	if (!playingAs) throw new TrackerError(TEXT.errors.noCharacter);
+	let playlist = id ? num(await gameDb.value('SELECT id FROM playlist WHERE id = ? AND characterId = ?', [id, playingAs])) : 0;
+	if (!playlist) {
+		const at = Date.now();
+		await gameDb.run('INSERT INTO playlist (name, createdAt, characterId) VALUES (?, ?, ?)', [name, at, playingAs]);
+		playlist = num(await gameDb.value('SELECT MAX(id) FROM playlist WHERE name = ? AND createdAt = ? AND characterId = ?', [name, at, playingAs]));
+		if (!playlist) throw new Error('playlist: not created');
+	}
+	// one save: the name, then the maps replaced
+	await gameDb.batch([
+		{ sql: 'UPDATE playlist SET name = ? WHERE id = ?', params: [name, playlist] },
+		{ sql: 'DELETE FROM playlist_entry WHERE playlistId = ?', params: [playlist] },
+		...maps.map((m, i) => ({
+			sql: "INSERT INTO playlist_entry (playlistId, beatmapId, rate, mods, position, repeat) VALUES (?, ?, ?, '', ?, 1)",
+			params: [playlist, m.beatmapId, m.rate, i + 1],
+		})),
+	]);
+	return playlist;
 };

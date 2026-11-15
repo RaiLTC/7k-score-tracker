@@ -3,9 +3,9 @@
 // window is closed, and while it's open, only clicks and keys do anything.
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
-import { TrackerError, latestMark, recent7k } from './data.js';
+import { TrackerError, latestMark, recent7k, savePlaylist } from './data.js';
 import { type Play, bestMaps } from './logic.js';
-import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_SETTINGS, recentMs, settingsStore, wholeOf } from './settings.js';
+import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
 import { bestHtml, bySkillHtml, legendHtml, listedPlays, messageHtml, playsHtml } from './view.js';
@@ -83,7 +83,7 @@ export class Tracker extends Addon {
 				<div class="panels">
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span><span class="filter" data-filter hidden><span data-filter-name></span><button type="button" class="btn small" data-only="">${TEXT.showAll}</button></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span></div><div class="legend-list">${legendHtml()}</div></section>
-					<section class="card best recent-best" hidden><div class="card-head"><span class="title" data-recent-title></span><span class="muted" data-recent-note></span></div><div class="list" data-list="recent"></div></section>
+					<section class="card best recent-best" hidden><div class="card-head"><span class="title" data-recent-title></span><span class="muted" data-recent-note></span><button type="button" class="btn small save-playlist" data-action="save-playlist" title="${TEXT.savePlaylistHelp}">${TEXT.savePlaylist}</button></div><div class="list" data-list="recent"></div></section>
 					<section class="card best" hidden><div class="card-head"><span class="title">${TEXT.best}</span><span class="muted" data-best-note></span></div><div class="list" data-list="best"></div></section>
 					<section class="card by-skill" hidden><div class="card-head"><span class="title">${TEXT.bySkill}</span><span class="muted">${TEXT.bySkillNote}</span></div><div class="list" data-list="skills"></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
@@ -93,6 +93,8 @@ export class Tracker extends Addon {
 						${settingRow(TEXT.recentFor, TEXT.recentForHelp, `<span class="recent-for"><input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.recentFor}" data-number="recentFor">${choice('recentUnit', TEXT.recentFor, TEXT.recentUnits)}</span>`)}
 						${settingRow(TEXT.recentCount, TEXT.recentCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.recentCount}" data-number="recentCount">`)}
 						${settingRow(TEXT.bestCount, TEXT.bestCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.bestCount}" data-number="bestCount">`)}
+						${settingRow(TEXT.avgOf, TEXT.avgOfHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.avgOf}" data-number="avgOf">`)}
+						${settingRow(TEXT.avgOfRecent, TEXT.avgOfRecentHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.avgOfRecent}" data-number="avgOfRecent">`)}
 						${settingRow(TEXT.buttonStyle, TEXT.buttonStyleHelp, choice('buttons', TEXT.buttonStyle, TEXT.buttonStyles))}
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 					</section>
@@ -160,11 +162,11 @@ export class Tracker extends Addon {
 				$('[data-filter-name]').textContent = only ? `${info ? info.title : TEXT.map(only)} · ${title}` : '';
 				$('[data-filter]').hidden = !only;
 			} else if (page === 'best') {
-				bestList.innerHTML = bestHtml(bestMaps(plays).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
+				bestList.innerHTML = bestHtml(bestMaps(plays, s.avgOf).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
 				// the recent list counts only the plays inside the time
-				recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since)).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
+				recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
 			} else {
-				skillsList.innerHTML = bySkillHtml(bestMaps(plays), s.unit);
+				skillsList.innerHTML = bySkillHtml(bestMaps(plays, s.avgOf), s.unit);
 			}
 			this.drawnAt = now;
 			if (!open.size) return;
@@ -177,6 +179,25 @@ export class Tracker extends Addon {
 				}
 			}
 		};
+		// the recent list into the game playlist; the button says how it went for a moment
+		const savePlaylistNow = async (button: HTMLElement) => {
+			if (!plays || button.dataset.busy) return;
+			button.dataset.busy = '1';
+			const s = this.settings, since = Date.now() - recentMs(s);
+			const maps = bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity).slice(0, s.recentCount);
+			let text = TEXT.saved;
+			try {
+				if (!maps.length) throw new Error('no maps');
+				const id = await savePlaylist(s.playlistId, TEXT.playlistName(TEXT.recentTitle(s.recentFor, s.recentUnit)), maps);
+				if (id !== s.playlistId) this.save({ playlistId: id });
+			} catch (e) {
+				this.log.error('saving the playlist failed', e);
+				text = TEXT.saveFailed;
+			}
+			button.textContent = text;
+			window.setTimeout(() => { button.textContent = TEXT.savePlaylist; delete button.dataset.busy; }, 2000);
+		};
+
 		// near the end of Recent plays: the next 50 (only while scrolling, nothing runs otherwise)
 		this.on(playsList, 'scroll', () => {
 			if (!plays || page !== 'plays' || playsList.scrollTop + playsList.clientHeight < playsList.scrollHeight - 300) return;
@@ -297,7 +318,7 @@ export class Tracker extends Addon {
 				input.setSelectionRange(start, start);
 			});
 			this.on(input, 'change', () => {
-				const n = wholeOf(input.value);
+				const n = wholeOf(input.value, NUMBER_MIN[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
 				if (n !== null) { this.save({ [input.dataset.number!]: n }); renderLists(); }
 				applyLook();
 			});
@@ -363,6 +384,7 @@ export class Tracker extends Addon {
 			}
 			switch (action) {
 				case 'refresh': void load(); break;
+				case 'save-playlist': void savePlaylistNow(target); break;
 				case 'close': setOpen(false); break;
 				case 'settings': showPage(page === 'settings' ? this.settings.view : 'settings'); break;
 				case 'record':

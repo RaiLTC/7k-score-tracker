@@ -6,6 +6,7 @@ Press **Alt+Shift+S** in game, or the shortcut you set in Settings (the gear), w
 
 - **Recent plays:** your latest 7K plays: when, the map, rate and mods, XP, XP per hour, minute or second, and which skills it trained.
 - **Most effective maps:** your top 25 7K maps, ranked by XP per minute at the rate you played them, under your top 10 from the last hour. Maps you haven't played in that hour are grayed out. The numbers and the hour can be changed in Settings.
+- **Save as playlist:** saves your best maps from the last hour, at their rates, to a playlist in the game.
 - **Skills:** for each skill, the 5 maps that gave it the most XP. Click a skill to open it.
 - **Click any play or map** to see its total XP and the XP per skill, and to show only its recent plays.
 - **Updates itself** while it's open: a new play, and its XP, show up within 10 seconds. A map's latest XP is green when it gave more than your play before and red when less, with an arrow when the change is 5% or more.

@@ -36,32 +36,43 @@ export const is7kPlay = (info, gains) => (info ? info.keys === 7 : ONLY_7K.some(
 /**
  * The maps played, best first: XP per minute of play (the map's length at the play's rate). The same map at another
  * rate is its own entry. Maps with no known length go after, by XP per play; maps that gave no XP are left out.
+ * The averages use only each map's latest `avgOf` plays with XP.
  * @param {Play[]} plays
+ * @param {number} [avgOf]
  * @returns {MapStats[]}
  */
-export const bestMaps = (plays) => {
-	/** @type {Map<string, Omit<MapStats, 'perPlay' | 'perMinute'>>} */
+export const bestMaps = (plays, avgOf = Infinity) => {
+	/** @type {Map<string, { m: Omit<MapStats, 'perPlay' | 'perMinute'>, withXp: Play[] }>} */
 	const byMap = new Map();
 	for (const p of plays) {
 		const rate = num(p.rate) || 1;
 		const key = `${p.beatmapId}@${rate}`;
-		const m = byMap.get(key) || { beatmapId: p.beatmapId, rate, info: p.info, n: 0, nXp: 0, xp: 0, gains: {}, lastAt: -1, last: {}, lastXp: 0, prevAt: -1, prevXp: 0 };
-		m.n++;
-		m.xp += p.total;
+		const entry = byMap.get(key) || { m: { beatmapId: p.beatmapId, rate, info: p.info, n: 0, nXp: 0, xp: 0, gains: {}, lastAt: -1, last: {}, lastXp: 0, prevAt: -1, prevXp: 0 }, withXp: [] };
+		entry.m.n++;
 		// a play saved without XP (not written yet, or none given) counts as played, but not in the averages or as
 		// the latest play
-		if (p.total > 0) m.nXp++;
-		// and the one before it, to show whether the map gives less XP than it did
-		if (p.total > 0 && p.playedAt > m.lastAt) {
-			m.prevAt = m.lastAt; m.prevXp = m.lastXp; m.lastAt = p.playedAt; m.last = p.gains; m.lastXp = p.total;
-		} else if (p.total > 0 && p.playedAt > m.prevAt) { m.prevAt = p.playedAt; m.prevXp = p.total; }
-		for (const sk of SKILLS_7K) m.gains[sk] = (m.gains[sk] || 0) + num(p.gains[sk]);
-		byMap.set(key, m);
+		if (p.total > 0) entry.withXp.push(p);
+		byMap.set(key, entry);
 	}
-	return [...byMap.values()].filter((m) => m.xp > 0).map((m) => {
+	const out = [];
+	for (const { m, withXp } of byMap.values()) {
+		if (!withXp.length) continue;
+		// newest first: the latest play, the one before it (is the map giving less XP?), and the averages from only
+		// the latest `avgOf` plays, so old plays that gave far more don't keep a map on top
+		withXp.sort((a, b) => b.playedAt - a.playedAt);
+		const latest = /** @type {Play} */ (withXp[0]), before = withXp[1];
+		m.lastAt = latest.playedAt; m.last = latest.gains; m.lastXp = latest.total;
+		if (before) { m.prevAt = before.playedAt; m.prevXp = before.total; }
+		const used = withXp.slice(0, Math.max(1, avgOf));
+		m.nXp = used.length;
+		for (const p of used) {
+			m.xp += p.total;
+			for (const sk of SKILLS_7K) m.gains[sk] = (m.gains[sk] || 0) + num(p.gains[sk]);
+		}
 		const minutes = m.info && m.info.lengthSec > 0 ? m.info.lengthSec / m.rate / 60 : 0;
-		return { ...m, perPlay: m.xp / m.nXp, perMinute: minutes ? m.xp / m.nXp / minutes : 0 };
-	}).sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay));
+		out.push({ ...m, perPlay: m.xp / m.nXp, perMinute: minutes ? m.xp / m.nXp / minutes : 0 });
+	}
+	return out.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay));
 };
 
 /** 18400 → "18.4K". @param {number} n */

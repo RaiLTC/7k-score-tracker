@@ -34,6 +34,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn { height: 30px; padding: 0 14px; background: none; border: 1px solid #3a3b45; border-radius: 8px; }
 .btn:hover { background: var(--hover); }
 .btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
+.card-head .save-playlist { margin-left: auto; align-self: center; }
 .detail .btn.small { margin-top: 8px; }
 /* Recent plays showing one map: its name and a way back to all plays */
 .filter { display: inline-flex; align-items: baseline; gap: 10px; margin-left: auto; color: var(--muted); min-width: 0; }

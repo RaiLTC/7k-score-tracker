@@ -55,3 +55,15 @@ test('a play saved without XP is counted, but never the latest play or part of a
 	assert.equal(m.perPlay, 150);
 	assert.equal(m.prevXp, 100);
 });
+
+test('averages use only the latest plays when limited', () => {
+	const info = { title: 'A', difficulty: 'B', keys: 7, lengthSec: 60 };
+	const play = (playedAt, total) => ({ beatmapId: 1, playedAt, rate: 1, mods: '', gains: { speed: total }, info, total });
+	const plays = [play(3, 1100), play(2, 3700), play(1, 4000)];
+	assert.equal(bestMaps(plays)[0].perPlay, 2933.3333333333335);
+	const [m] = bestMaps(plays, 1);
+	assert.equal(m.perPlay, 1100);
+	assert.equal(m.n, 3);
+	assert.equal(m.lastXp, 1100);
+	assert.equal(m.prevXp, 3700);
+});
