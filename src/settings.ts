@@ -9,10 +9,12 @@ export type ButtonStyle = 'solid' | 'outlined' | 'tinted';
 export type SkillsAs = 'bar' | 'top';
 export type RecentShow = 'show' | 'hide';
 export type RecentUnit = 'm' | 'h';
+export type OnOff = 'off' | 'on';
 export type AccentId = 'neutral' | 'cold' | 'warming' | 'peak' | 'pushing' | 'fatigued' | 'osu' | 'custom';
 export type Settings = {
 	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, accent: AccentId, customAccent: string,
 	recent: RecentShow, recentFor: number, recentUnit: RecentUnit, recentCount: number, bestCount: number, avgOf: number, avgOfRecent: number,
+	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit,
 	/** The game playlist the add-on saves into (0 until the first save). */
 	playlistId: number,
 };
@@ -23,7 +25,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -33,13 +35,16 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The number settings (how long counts as recent, how many maps each list shows, how many plays are averaged): a
  *  whole number from 1 (or `min`) to 999, or null. */
-export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent'] as const;
+export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent', 'oldFor'] as const;
 export const wholeOf = (v: unknown, min = 1): number | null => {
 	const n = Number(v);
 	return v !== '' && Number.isInteger(n) && n >= min && n <= 999 ? n : null;
 };
 /** The lowest each number setting takes: the recent list's plays averaged can be 0, for all of them. */
 export const NUMBER_MIN: Partial<Record<typeof NUMBER_SETTINGS[number], number>> = { avgOfRecent: 0 };
+
+/** Plays older than this are left out of Most effective maps (when that's on), in milliseconds. */
+export const oldMs = (s: Settings): number => s.oldFor * (s.oldUnit === 'h' ? 3600e3 : 60e3);
 
 /** How long counts as recent, in milliseconds. */
 export const recentMs = (s: Settings): number => s.recentFor * (s.recentUnit === 'h' ? 3600e3 : 60e3);
@@ -63,6 +68,9 @@ export const loadSettings = (): Settings => {
 		bestCount: wholeOf(s.bestCount) ?? DEFAULTS.bestCount,
 		avgOf: wholeOf(s.avgOf) ?? DEFAULTS.avgOf,
 		avgOfRecent: wholeOf(s.avgOfRecent, 0) ?? DEFAULTS.avgOfRecent,
+		oldOn: oneOf(s.oldOn, ['off', 'on'], DEFAULTS.oldOn),
+		oldFor: wholeOf(s.oldFor) ?? DEFAULTS.oldFor,
+		oldUnit: oneOf(s.oldUnit, ['m', 'h'], DEFAULTS.oldUnit),
 		playlistId: Number.isInteger(s.playlistId) && s.playlistId > 0 ? s.playlistId : 0,
 		recentUnit: oneOf(s.recentUnit, ['m', 'h'], DEFAULTS.recentUnit),
 	};

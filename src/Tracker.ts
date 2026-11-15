@@ -5,7 +5,7 @@
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { TrackerError, latestMark, recent7k, savePlaylist } from './data.js';
 import { type Play, bestMaps } from './logic.js';
-import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, recentMs, settingsStore, wholeOf } from './settings.js';
+import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import styles from './styles.css';
 import { TEXT } from './text.js';
 import { bestHtml, bySkillHtml, legendHtml, listedPlays, messageHtml, playsHtml } from './view.js';
@@ -95,6 +95,7 @@ export class Tracker extends Addon {
 						${settingRow(TEXT.bestCount, TEXT.bestCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.bestCount}" data-number="bestCount">`)}
 						${settingRow(TEXT.avgOf, TEXT.avgOfHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.avgOf}" data-number="avgOf">`)}
 						${settingRow(TEXT.avgOfRecent, TEXT.avgOfRecentHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.avgOfRecent}" data-number="avgOfRecent">`)}
+						${settingRow(TEXT.oldPlays, TEXT.oldPlaysHelp, `<span class="recent-for">${choice('oldOn', TEXT.oldPlays, TEXT.oldOptions)}<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.oldPlays}" data-number="oldFor">${choice('oldUnit', TEXT.oldPlays, TEXT.recentUnits)}</span>`)}
 						${settingRow(TEXT.buttonStyle, TEXT.buttonStyleHelp, choice('buttons', TEXT.buttonStyle, TEXT.buttonStyles))}
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 					</section>
@@ -162,7 +163,9 @@ export class Tracker extends Addon {
 				$('[data-filter-name]').textContent = only ? `${info ? info.title : TEXT.map(only)} · ${title}` : '';
 				$('[data-filter]').hidden = !only;
 			} else if (page === 'best') {
-				bestList.innerHTML = bestHtml(bestMaps(plays, s.avgOf).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
+				// with old plays left out, only the newer ones count (a map played only before then drops out)
+				const kept = s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays;
+				bestList.innerHTML = bestHtml(bestMaps(kept, s.avgOf).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title));
 				// the recent list counts only the plays inside the time
 				recentList.innerHTML = bestHtml(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', TEXT.noRecent(title));
 			} else {
@@ -373,7 +376,7 @@ export class Tracker extends Addon {
 				this.save({ [set]: value } as Partial<Settings>);
 				applyLook();
 				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide';
-				if (set === 'unit' || set === 'skillsAs' || set === 'recentUnit') renderLists();
+				if (['unit', 'skillsAs', 'recentUnit', 'oldOn', 'oldUnit'].includes(set)) renderLists();
 				return;
 			}
 			if (accent) {
