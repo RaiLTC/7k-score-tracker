@@ -238,7 +238,9 @@ export class Tracker extends Addon {
 				// the recent list counts only the plays inside the time, coloured as Effective Maps colours them
 				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best, since));
 			} else {
-				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays, s.avgOf)), s.unit, since, TEXT.stale(title));
+				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays, s.avgOf)), s.unit, since, TEXT.stale(title),
+					// a skill with no maps left after old plays are left out shows grayed out (not while searching)
+					s.oldOn === 'on' && !searching(query) ? TEXT.noSkillPlays(TEXT.recentTitle(s.oldFor, s.oldUnit)) : '');
 			}
 			this.drawnAt = now;
 			if (!open.size) return;

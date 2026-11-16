@@ -201,12 +201,14 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 
 /** The Skills tab: for each skill, the maps that gave it the most XP per minute of play; a map not played since
  *  `since` is grayed out, as in Effective Maps. */
-export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = ''): string => {
+export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = '', none = ''): string => {
 	const groups = bestBySkill(maps, 5, since);
 	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols, now = Date.now();
+	// with `none`, a skill no map trained still shows, grayed out with it, so it doesn't look missing
+	const all = none ? SKILLS_7K.map((skill) => groups.find((g) => g.skill === skill) ?? { skill, maps: [] }) : groups;
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
-	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
+	return all.map(({ skill, maps: top }) => !top.length ? `<div class="skill-group none"><div class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(none)}</span></div></div>` : `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
 		<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
 		${((grade) => top.map((x) => {

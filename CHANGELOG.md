@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.4] - 2026-11-16
+
+### Changed
+
+- Gray out skills in Skills with no plays left when old plays are left out
+
 ## [1.1.3] - 2026-11-16
 
 ### Fixed

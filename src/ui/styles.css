@@ -258,6 +258,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* the open/closed chevron */
 .skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
 .skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }
+/* a skill with no maps left: grayed out, and it doesn't open */
+.skill-group.none .skill-group-head { color: #6b6c75; cursor: default; }
+.skill-group.none .skill-group-head:hover { background: none; }
+.skill-group.none .skill-group-head::after { visibility: hidden; }
+.skill-group.none .dot { filter: grayscale(1) brightness(0.6); }
 /* the same columns as Most effective maps, without Skills; the difficulty sits on the title's line */
 .by-skill .row { grid-template-columns: 64px minmax(0, 1fr) repeat(6, 56px); }
 .by-skill .row > :nth-child(n+3) { text-align: center; }

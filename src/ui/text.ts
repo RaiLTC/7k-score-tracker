@@ -54,6 +54,7 @@ export const TEXT = {
 	avgOfHelp: 'Your latest plays per map in Effective Maps and Skills',
 	oldPlays: 'Leave out old plays',
 	oldPlaysHelp: 'Effective Maps and Skills ignore plays older than this',
+	noSkillPlays: (title: string) => `No plays in the ${title.toLowerCase()}`,
 	oldOptions: { off: 'Off', on: 'On' },
 	avgOfRecent: 'Plays averaged in recent maps',
 	avgOfRecentHelp: 'Your latest plays per map in the recent list. 0 uses all of them.',
