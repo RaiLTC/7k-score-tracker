@@ -163,7 +163,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	if (!id) throw new TrackerError(TEXT.errors.noCharacter);
 	playingAs = id;
 	const rows = await rowsOf(
-		`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, x.gains AS gains
+		`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, s.pp AS pp, x.gains AS gains
 		 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
 		 WHERE s.characterId = ? ORDER BY s.playedAt DESC LIMIT ?`, [id, READ_PLAYS]);
 	if (rows === null) throw new TrackerError(TEXT.errors.noDatabase);
@@ -177,7 +177,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	for (const { r, gains } of parsed) {
 		const info = infoOf(cat, num(r.beatmapId));
 		if (!is7kPlay(info, gains)) continue;
-		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains) });
+		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp) });
 	}
 	return out;
 };

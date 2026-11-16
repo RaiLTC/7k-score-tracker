@@ -66,6 +66,7 @@ export const TEXT = {
 	skillsNote: 'Select a skill once to hide maps that give it the most XP, twice to hide every map it’s a top skill of',
 	hideSkill: (name: string) => `${name}: shown, then maps it’s the top skill of hidden, then every map it’s a top skill of hidden`,
 	total: 'Total',
+	playInfo: { length: 'Length', sr: 'SR', pp: 'PP' },
 	views: 'View',
 	plays: 'Recent plays',
 	best: 'Effective Maps',
@@ -137,8 +138,8 @@ export const TEXT = {
 	barHelp: 'The strain bar after the play; › straining, ‹ resting',
 	noStrain: 'Not noted: played before the tracker noted strain, or after a break',
 	cols: {
-		when: 'When', map: 'Map', rate: 'Rate', xp: 'XP', strain: 'Strain', skills: 'Skills',
-		number: '#', plays: 'Plays', totalXp: 'Total XP', perPlay: 'Per play',
+		when: 'When', map: 'Map', rate: 'Rate', pp: 'PP', strain: 'Strain', skills: 'Skills',
+		plays: 'Plays', totalXp: 'Total XP', perPlay: 'Per play',
 	},
 	skills: {
 		accuracy: 'Accuracy', speed: 'Speed', stamina: 'Stamina', jacks: 'Jacks', independence: 'Independence',

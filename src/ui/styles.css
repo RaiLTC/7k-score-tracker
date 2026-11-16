@@ -99,12 +99,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .row[role='button'] { cursor: pointer; }
 .row[role='button']:hover, .row[aria-expanded='true'], .row[aria-expanded='true'] + .detail { background: var(--hover); }
 .row[role='button'][aria-expanded='true'] { border-bottom: 0; }
-.plays .row { grid-template-columns: 64px minmax(0, 1fr) repeat(5, 56px) 124px; }
-.best .row { grid-template-columns: 22px minmax(0, 1fr) repeat(5, 56px) 124px; }
+.plays .row { grid-template-columns: 64px minmax(0, 1fr) repeat(6, 56px) 124px; }
+.best .row { grid-template-columns: 64px minmax(0, 1fr) repeat(5, 56px) 124px; }
 /* the numbers sit centred in same-width columns, under centred headings, so they're evenly spaced; Skills starts as
    far from Strain as the numbers are apart */
-.best .row > :nth-child(n+3):nth-child(-n+7), .plays .row > :nth-child(n+3):nth-child(-n+7) { text-align: center; }
-.best .row > :nth-child(8), .plays .row > :nth-child(8) { padding-left: 16px; }
+.best .row > :nth-child(n+3):nth-child(-n+7), .plays .row > :nth-child(n+3):nth-child(-n+8) { text-align: center; }
+.best .row > :nth-child(8), .plays .row > :nth-child(9) { padding-left: 16px; }
 /* Strain: the value in the middle; the arrows on either side, spilling past the column rather than pushing it */
 .strain { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; }
 .strain .arrows { display: flex; white-space: nowrap; }
@@ -232,7 +232,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skill-line { grid-template-columns: 110px minmax(0, 1fr) 64px 110px; }
 .skill-line > .num:nth-child(3) { text-align: center; }
 .skill-line > .num:last-child { text-align: left; }
-.best .detail { padding-left: 46px; }
+.best .detail { padding-left: 88px; }
+.detail-info { display: flex; gap: 16px; padding-bottom: 6px; }
 .plays .detail { padding-left: 88px; }
 
 /* each skill's colour */
@@ -260,7 +261,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
 .skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }
 /* the same columns as Most effective maps, without Skills; the difficulty sits on the title's line */
-.by-skill .row { grid-template-columns: 22px minmax(0, 1fr) repeat(5, 56px); min-height: 34px; contain-intrinsic-size: auto 34px; }
+.by-skill .row { grid-template-columns: 64px minmax(0, 1fr) repeat(6, 56px); min-height: 34px; contain-intrinsic-size: auto 34px; }
 .map.inline { flex-direction: row; align-items: baseline; gap: 8px; }
 .map.inline span:first-child { flex-shrink: 1; }
 .map.inline span:last-child { flex-shrink: 10; }

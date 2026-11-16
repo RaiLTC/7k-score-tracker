@@ -2,6 +2,20 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.0] - 2026-11-16
+
+### Added
+
+- Add a PP column to Recent
+- Show a play's length, SR and PP when you open it in Recent
+- Add a When column to Effective Maps, the last hour list, Strain and Skills
+- Add a Total XP column to Skills
+
+### Changed
+
+- Rename XP to Total XP in Recent
+- Remove the # column
+
 ## [1.0.1] - 2026-11-16
 
 ### Changed

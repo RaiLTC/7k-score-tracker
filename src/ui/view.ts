@@ -47,8 +47,18 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 /** The Skills box: which colour is which skill. */
 export const legendHtml = (): string => SKILLS_7K.map((sk) => `<button type="button" class="legend-skill" data-skill="${sk}" aria-pressed="true" title="${TEXT.hideSkill(skillName(sk))}"><i class="dot sk-${sk}"></i>${skillName(sk)}</button>`).join('');
 
+/** A play's PP: none when it gave none. */
+const ppText = (pp = 0) => (pp > 0 ? (pp < 100 ? pp.toFixed(1) : String(Math.round(pp))) : '–');
+const lengthText = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+/** An opened play's line: the map's length at the play's rate, its SR and the play's PP. */
+const playInfo = (p: Play) => {
+	const t = TEXT.playInfo, len = p.info && p.info.lengthSec > 0 ? lengthText(p.info.lengthSec / (num(p.rate) || 1)) : '–';
+	const sr = p.info?.stars ? p.info.stars.toFixed(2) : '–';
+	return [[t.length, len], [t.sr, sr], [t.pp, ppText(p.pp)]].map(([k, v]) => `<span>${k} <span class="strong">${v}</span></span>`).join('');
+};
+
 /** Under a clicked row: the total, then each skill's XP (for a map, its latest play), biggest first, with its share. */
-const breakdown = (gains: Gains, per = 1, label = '', mapId = 0) => {
+const breakdown = (gains: Gains, per = 1, label = '', mapId = 0, info = '') => {
 	const total = totalOf(gains) / per;
 	const parts = SKILLS_7K.map((sk): [string, number] => [sk, num(gains[sk]) / per]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
 	const lines = parts.map(([sk, v]) => `<div class="skill-line">
@@ -58,7 +68,7 @@ const breakdown = (gains: Gains, per = 1, label = '', mapId = 0) => {
 	</div>`).join('');
 	const totalLine = total > 0 ? `<div class="skill-line total"><span>${TEXT.total}</span><span></span><span class="num">${xpText(total)}</span><span class="muted num">100%</span></div>` : '';
 	const only = mapId ? `<button type="button" class="btn small" data-only="${mapId}">${TEXT.onlyMap}</button>` : '';
-	return `<div class="detail" hidden>${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${totalLine}${lines || `<div class="muted">${TEXT.noXp}</div>`}${only}</div>`;
+	return `<div class="detail" hidden>${info ? `<div class="muted detail-info">${info}</div>` : ''}${label ? `<div class="muted detail-label">${esc(label)}</div>` : ''}${totalLine}${lines || `<div class="muted">${TEXT.noXp}</div>`}${only}</div>`;
 };
 
 /** A clickable row; its key lets an open row stay open when the list is drawn again. */
@@ -152,18 +162,19 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 	};
 	// coloured against the plays not grayed out, in the whole list (not only this batch)
 	const grade = gradeOf(listed.filter((p) => p.playedAt >= since).map(perMinuteOf));
-	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.xp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
+	return `${start ? '' : `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.pp}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>`}${plays.map((p) => {
 		const mods = String(p.mods).replace(/[[\]",]/g, ' ').trim();
 		return `<div ${row(`${p.playedAt}:${p.beatmapId}`, p.playedAt < since ? staleText : '')}>
 			<span class="muted">${agoText(now - p.playedAt)}</span>
 			${mapCell(p.info, p.beatmapId, mods)}
 			<span class="muted">${rateText(p.rate)}</span>
 			<span class="muted" title="${TEXT.playsOnMap}">${timesPlayed.get(p.beatmapId) ?? 1}</span>
+			<span class="muted">${ppText(p.pp)}</span>
 			${p.total > 0 ? xpCell(p.total, before.get(p) ?? 0) : '<span><span class="muted">–</span></span>'}
 			${rateCell(perMinuteOf(p), unit, p.playedAt < since ? undefined : grade)}
 			${strainCells(p.playedAt)}
 			${skillsCell(p.gains, as)}
-		</div>${breakdown(p.gains, 1, '', only ? 0 : p.beatmapId)}`;
+		</div>${breakdown(p.gains, 1, '', only ? 0 : p.beatmapId, playInfo(p))}`;
 	}).join('')}`;
 };
 
@@ -175,9 +186,9 @@ export const gradeScale = (maps: MapStats[], since = 0): number[] => maps.filter
 export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest, arrowsOnly = false, vOf?: (m: MapStats) => number | undefined, plainXp = false, scale?: number[]): string => {
 	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
-	const grade = gradeOf(scale?.length ? scale : gradeScale(maps, since));
-	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
-		<span class="muted">${i + 1}</span>
+	const grade = gradeOf(scale?.length ? scale : gradeScale(maps, since)), now = Date.now();
+	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
+		<span class="muted">${agoText(now - m.lastAt)}</span>
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
@@ -192,16 +203,17 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 	const groups = bestBySkill(maps);
 	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
-	const c = TEXT.cols;
+	const c = TEXT.cols, now = Date.now();
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
 	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
-		<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
-		${((grade) => top.map((x, i) => `<div class="row">
-			<span class="muted">${i + 1}</span>
+		<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
+		${((grade) => top.map((x) => `<div class="row">
+			<span class="muted">${agoText(now - x.map.lastAt)}</span>
 			<button type="button" class="map-link" data-only="${x.map.beatmapId}" title="${TEXT.onlyMap}">${mapCell(x.map.info, x.map.beatmapId, '', true)}</button>
 			<span class="muted">${rateText(x.map.rate)}</span>
 			<span class="muted">${x.map.n}</span>
+			<span>${xpText(x.map.lastXp)}</span>
 			<span>${xpText(x.perPlay)}</span>
 			${rateCell(x.perMinute, unit, grade)}
 			${strainCells(x.map.lastAt)}
