@@ -2,6 +2,17 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2] - 2026-11-16
+
+### Added
+
+- Fold a map's rates into one row in Skills: the best recent rate leads, click it to see each rate
+
+### Changed
+
+- Open maps in Skills like in Effective Maps, with their XP per skill
+- Leave out old plays in Skills when that setting is on
+
 ## [1.1.1] - 2026-11-16
 
 ### Added

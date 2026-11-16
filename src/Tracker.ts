@@ -238,7 +238,7 @@ export class Tracker extends Addon {
 				// the recent list counts only the plays inside the time, coloured as Effective Maps colours them
 				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best, since));
 			} else {
-				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(plays, s.avgOf)), s.unit, since, TEXT.stale(title));
+				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays, s.avgOf)), s.unit, since, TEXT.stale(title));
 			}
 			this.drawnAt = now;
 			if (!open.size) return;
@@ -694,7 +694,7 @@ export class Tracker extends Addon {
 			detail.hidden = !detail.hidden;
 			row.setAttribute('aria-expanded', String(!detail.hidden));
 		};
-		for (const list of [playsList, bestList, recentList, $('[data-suggest]')]) {
+		for (const list of [playsList, bestList, recentList, skillsList, $('[data-suggest]')]) {
 			this.on(list, 'click', toggleRow);
 			this.on(list, 'keydown', toggleRow);
 		}

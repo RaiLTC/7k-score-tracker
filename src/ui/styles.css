@@ -42,8 +42,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Recent plays showing one map: its name and a way back to all plays */
 .filter { display: inline-flex; align-items: baseline; gap: 10px; margin-left: auto; color: var(--muted); min-width: 0; }
 /* Skills tab: the map name opens its recent plays */
-.map-link { display: flex; min-width: 0; padding: 0; color: inherit; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
-.map-link:hover .map > span:first-child { text-decoration: underline; }
 /* the Button style setting */
 .window[data-buttons='tinted'] .btn { border: 0; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .window[data-buttons='tinted'] .btn:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
@@ -261,11 +259,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .skill-group-head::after { content: ''; flex: none; width: 6px; height: 6px; margin-left: 8px; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: rotate(-45deg); }
 .skill-group[open] > .skill-group-head::after { transform: rotate(45deg); }
 /* the same columns as Most effective maps, without Skills; the difficulty sits on the title's line */
-.by-skill .row { grid-template-columns: 64px minmax(0, 1fr) repeat(6, 56px); min-height: 34px; contain-intrinsic-size: auto 34px; }
-.map.inline { flex-direction: row; align-items: baseline; gap: 8px; }
-.map.inline span:first-child { flex-shrink: 1; }
-.map.inline span:last-child { flex-shrink: 10; }
+.by-skill .row { grid-template-columns: 64px minmax(0, 1fr) repeat(6, 56px); }
 .by-skill .row > :nth-child(n+3) { text-align: center; }
+/* a map played at more rates: +n next to its rate; opened, a row per rate, each opening to its own XP */
+.rates { padding: 0 4px; color: var(--muted); background: var(--hover); border-radius: 4px; font-size: 10px; line-height: 15px; }
+.by-skill .detail { padding-left: 88px; }
+.by-skill .detail.rates-list { padding: 0; }
+/* the rates inside an opened map: smaller rows, so they read as one folder */
+.by-skill .row.sub { min-height: 32px; border-top: 0; font-size: 12px; contain-intrinsic-size: auto 32px; }
+.by-skill .row.sub .map { line-height: 1.15; }
 
 /* the latest XP against the play before: green when more, red when less (gray when the map is stale) */
 .trend { font-size: 11px; font-weight: 500; }

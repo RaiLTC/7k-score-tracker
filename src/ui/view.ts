@@ -21,10 +21,10 @@ const rateXp = (perMinute: number, unit: Unit) => {
 };
 
 /** The map's title, and under it its difficulty (and the play's mods, if any). */
-const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '', inline = false) => {
+const mapCell = (info: MapInfo | undefined, beatmapId: number, mods = '') => {
 	const title = info ? info.title : TEXT.map(beatmapId);
 	const sub = [info?.difficulty, mods].filter(Boolean).join(' · ');
-	return `<span class="map${inline ? ' inline' : ''}" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
+	return `<span class="map" title="${esc(info ? `${info.title} [${info.difficulty}]` : title)}"><span>${esc(title)}</span><span class="muted">${esc(sub)}</span></span>`;
 };
 
 /** The skills column: a bar for each skill's XP, or the (up to) 2 that gave the most XP, each in its colour. */
@@ -72,7 +72,7 @@ const breakdown = (gains: Gains, per = 1, label = '', mapId = 0, info = '') => {
 };
 
 /** A clickable row; its key lets an open row stay open when the list is drawn again. */
-const row = (key: string, stale = '') => `class="row${stale ? ' stale' : ''}" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"${stale ? ` title="${esc(stale)}"` : ''}`;
+const row = (key: string, stale = '', cls = '') => `class="row${cls ? ` ${cls}` : ''}${stale ? ' stale' : ''}" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"${stale ? ` title="${esc(stale)}"` : ''}`;
 
 /** A map's latest XP is green when it gave more than the play before, red when less. Next to it: an arrow when it gave clearly less (or more) than the play before, 5% or more. */
 const TREND_MIN = 0.05;
@@ -202,23 +202,32 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 /** The Skills tab: for each skill, the maps that gave it the most XP per minute of play; a map not played since
  *  `since` is grayed out, as in Effective Maps. */
 export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = ''): string => {
-	const groups = bestBySkill(maps);
+	const groups = bestBySkill(maps, 5, since);
 	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols, now = Date.now();
 	// a closed block per skill (the browser's own <details>: no script), its best map named on the closed line
 	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
 		<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
-		${((grade) => top.map((x) => `<div class="row${x.map.lastAt < since ? ' stale' : ''}"${x.map.lastAt < since ? ` title="${esc(staleText)}"` : ''}>
-			<span class="muted">${agoText(now - x.map.lastAt)}</span>
-			<button type="button" class="map-link" data-only="${x.map.beatmapId}" title="${TEXT.onlyMap}">${mapCell(x.map.info, x.map.beatmapId, '', true)}</button>
-			<span class="muted">${rateText(x.map.rate)}</span>
-			<span class="muted">${x.map.n}</span>
-			<span>${xpText(x.map.lastXp)}</span>
-			<span>${xpText(x.perPlay)}</span>
-			${rateCell(x.perMinute, unit, x.map.lastAt < since ? undefined : grade)}
-			${strainCells(x.map.lastAt, true)}
-		</div>`).join(''))(gradeOf(top.filter((x) => x.map.lastAt >= since).map((x) => x.perMinute)))}
+		${((grade) => top.map((x) => {
+			// a map's row opens like Effective Maps: to its latest play's XP, or, played at more than one rate, to a
+			// row per rate (slowest first), each opening to its own
+			const cells = (y: typeof x.others[number], more: boolean) => `
+				<span class="muted">${agoText(now - y.map.lastAt)}</span>
+				${mapCell(y.map.info, y.map.beatmapId)}
+				<span class="muted">${more && x.others.length ? `<span class="rates">+${x.others.length}</span>` : rateText(y.map.rate)}</span>
+				<span class="muted">${y.map.n}</span>
+				<span>${xpText(y.map.lastXp)}</span>
+				<span>${xpText(y.perPlay)}</span>
+				${rateCell(y.perMinute, unit, y.map.lastAt < since ? undefined : grade)}
+				${strainCells(y.map.lastAt, true)}`;
+			const stale = (y: typeof x.others[number]) => (y.map.lastAt < since ? staleText : '');
+			const info = (y: typeof x.others[number]) => breakdown(y.map.last, 1, y.map.n > 1 ? TEXT.latest : '', y.map.beatmapId);
+			const key = `${skill}:${x.map.beatmapId}`;
+			if (!x.others.length) return `<div ${row(key, stale(x))}>${cells(x, true)}</div>${info(x)}`;
+			const rates = [x, ...x.others].sort((a, b) => a.map.rate - b.map.rate);
+			return `<div ${row(key, stale(x))}>${cells(x, true)}</div><div class="detail rates-list" hidden>${rates.map((y) => `<div ${row(`${key}@${y.map.rate}`, stale(y), 'sub')}>${cells(y, false)}</div>${info(y)}`).join('')}</div>`;
+		}).join(''))(gradeOf(top.filter((x) => x.map.lastAt >= since).map((x) => x.perMinute)))}
 	</details>`).join('');
 };
 

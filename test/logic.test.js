@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agoText, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/rules/logic.js';
+import { agoText, bestBySkill, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/rules/logic.js';
 import { arrowsOf, restedStrain, strainPerMinute, strainWhenSet } from '../src/rules/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
@@ -126,4 +126,18 @@ test("the strain the game set at a play's end is what it gives later plus the re
 	assert.equal(Math.round(strainWhenSet(33.155, (Date.parse('2026-11-16T07:37:15.777Z') - Date.parse('2026-11-16T07:36:23.401Z')) / 60e3) * 100) / 100, 34.03);
 	assert.equal(strainWhenSet(0, 5), 0);
 	assert.equal(strainWhenSet(10, -1), 10);
+});
+
+test("Skills: a map's rates are one entry, led by its best recent rate, or the one played last", () => {
+	const info = { title: 'A', difficulty: '7K', keys: 7, lengthSec: 60 };
+	const at = (rate, playedAt, speed) => ({ beatmapId: 1, playedAt, rate, mods: '', gains: { speed }, info, total: speed });
+	// none recent: the rate played last leads
+	const [speed] = bestBySkill(bestMaps([at(1, 100, 900), at(1.1, 200, 500), at(1.2, 50, 700)]), 5, 1000);
+	assert.equal(speed.maps.length, 1);
+	assert.equal(speed.maps[0].map.rate, 1.1);
+	assert.deepEqual(speed.maps[0].others.map((o) => o.map.rate), [1, 1.2]);
+	// 1.0 and 1.1 both recent: the one with more XP per minute leads
+	assert.equal(bestBySkill(bestMaps([at(1, 100, 900), at(1.1, 200, 500)]), 5, 50)[0].maps[0].map.rate, 1);
+	// only 1.1 recent: it leads
+	assert.equal(bestBySkill(bestMaps([at(1, 100, 900), at(1.1, 200, 500)]), 5, 150)[0].maps[0].map.rate, 1.1);
 });

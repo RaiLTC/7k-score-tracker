@@ -87,21 +87,33 @@ export const agoText = (ms) => {
 	return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 };
 
+/** @typedef {{ map: MapStats, perMinute: number, perPlay: number }} SkillMap */
+
 /**
  * For each 7K skill, the maps that gave it the most XP per minute of play (each map's average per play); maps with no
  * known length go after, by XP per play. Skills no map trained are left out.
- * @param {MapStats[]} maps @param {number} [count]
- * @returns {{ skill: string, maps: { map: MapStats, perMinute: number, perPlay: number }[] }[]}
+ * A map's rates are one entry, led (and ranked) by its rate with the most XP per minute among those played since
+ * `since`, or, none played since then, by the rate played last; its other rates in `others`, slowest first.
+ * @param {MapStats[]} maps @param {number} [count] @param {number} [since]
+ * @returns {{ skill: string, maps: (SkillMap & { others: SkillMap[] })[] }[]}
  */
-export const bestBySkill = (maps, count = 5) => SKILLS_7K.map((skill) => ({
-	skill,
-	maps: maps.map((m) => {
+export const bestBySkill = (maps, count = 5, since = 0) => SKILLS_7K.map((skill) => {
+	/** @type {Map<number, SkillMap[]>} */
+	const byMap = new Map();
+	for (const m of maps) {
 		const perPlay = num(m.gains[skill]) / m.nXp;
-		return { map: m, perPlay, perMinute: m.perPlay > 0 ? m.perMinute * (perPlay / m.perPlay) : 0 };
-	}).filter((x) => x.perPlay > 0)
-		.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay))
-		.slice(0, count),
-})).filter((s) => s.maps.length > 0);
+		if (!(perPlay > 0)) continue;
+		const rates = byMap.get(m.beatmapId) ?? [];
+		rates.push({ map: m, perPlay, perMinute: m.perPlay > 0 ? m.perMinute * (perPlay / m.perPlay) : 0 });
+		byMap.set(m.beatmapId, rates);
+	}
+	const rows = [...byMap.values()].map((rates) => {
+		const fresh = (/** @type {SkillMap} */ x) => x.map.lastAt >= since;
+		rates.sort((a, b) => (Number(fresh(b)) - Number(fresh(a))) || (fresh(a) ? b.perMinute - a.perMinute : b.map.lastAt - a.map.lastAt));
+		return { .../** @type {SkillMap} */ (rates[0]), others: rates.slice(1).sort((a, b) => a.map.rate - b.map.rate) };
+	});
+	return { skill, maps: rows.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay)).slice(0, count) };
+}).filter((s) => s.maps.length > 0);
 
 // ---- search ----
 
