@@ -8,22 +8,24 @@
 // - your strain: the game's API, asked once when a new play shows up (the game keeps no strain per play).
 
 import { gameDb, type SqlValue } from '@oss-idle/addon-sdk';
-import { type MapInfo, type Play, is7kPlay, num, ONLY_7K, parseGains, totalOf } from './logic.js';
-import { restedStrain, strainPerMinute } from './strain.js';
-import { TEXT } from './text.js';
+import { type MapInfo, type Play, is7kPlay, num, ONLY_7K, parseGains, totalOf } from '../rules/logic.js';
+import { restedStrain, strainPerMinute, strainWhenSet } from '../rules/strain.js';
+import { TEXT } from '../ui/text.js';
 
 const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
 /** How many of your newest plays are read: the tracker shows the 7K ones among them. */
 const READ_PLAYS = 2000;
 const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 20000;
-const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v2';
+const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v3';
+/** Catalogues kept before, without what's kept now: removed once the new one is saved. */
+const OLD_CATALOG_KEYS = ['catalog-v2'];
 
 type Api = {
 	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number } } | null | undefined>,
 };
-/** id → [title, difficulty, keys, length in seconds]; when it was fetched and last tried; maps it didn't have:
- *  id → [tries, when to try again]. */
-type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number, number]>, missing?: Record<number, [number, number]> };
+/** id → [title, difficulty, keys, length in seconds, stars, mapper]; when it was fetched and last tried; maps it
+ *  didn't have: id → [tries, when to try again]. */
+type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number, number, string]>, missing?: Record<number, [number, number]> };
 /** After the first try for a missing map: wait 1 minute, then 5; then it's unresolved. */
 const RETRY_AFTER = [60e3, 300e3];
 
@@ -64,6 +66,12 @@ const cacheSet = async (key: string, value: unknown): Promise<void> => {
 	try { db.transaction(CACHE_STORE, 'readwrite').objectStore(CACHE_STORE).put(value, key); } catch { /* memory only */ }
 };
 
+const cacheDelete = async (key: string): Promise<void> => {
+	const db = await openCache();
+	if (!db) return;
+	try { db.transaction(CACHE_STORE, 'readwrite').objectStore(CACHE_STORE).delete(key); } catch { /* nothing to remove */ }
+};
+
 // ---- the map catalogue ----
 
 let catalog: Catalog | null = null;
@@ -75,9 +83,9 @@ const fetchCatalog = async (): Promise<Catalog> => {
 	const walk = (v: unknown): void => {
 		if (!v || typeof v !== 'object') return;
 		if (Array.isArray(v)) { v.forEach(walk); return; }
-		const o = v as { title?: string, versions?: { id?: number, version?: string, keys?: number, total_length?: number, difficulty?: number }[] };
+		const o = v as { title?: string, creator?: string, versions?: { id?: number, version?: string, keys?: number, total_length?: number, difficulty?: number }[] };
 		if (Array.isArray(o.versions) && o.title) {
-			for (const d of o.versions) if (d && d.id) maps[d.id] = [o.title, d.version ?? '', num(d.keys), num(d.total_length) / 1000, num(d.difficulty)];
+			for (const d of o.versions) if (d && d.id) maps[d.id] = [o.title, d.version ?? '', num(d.keys), num(d.total_length) / 1000, num(d.difficulty), o.creator ?? ''];
 		}
 		for (const [k, child] of Object.entries(o)) if (k !== 'versions') walk(child);
 	};
@@ -110,12 +118,13 @@ const mapCatalog = async (played: number[]): Promise<Catalog> => {
 	}
 	catalog = { ...next, missing };
 	void cacheSet(CATALOG_KEY, catalog);
+	for (const key of OLD_CATALOG_KEYS) void cacheDelete(key);
 	return catalog;
 };
 
 const infoOf = (cat: Catalog, id: number): MapInfo | undefined => {
 	const m = cat.maps[id];
-	return m ? { title: m[0], difficulty: m[1], keys: m[2], lengthSec: m[3], stars: num(m[4]) } : undefined;
+	return m ? { title: m[0], difficulty: m[1], keys: m[2], lengthSec: m[3], stars: num(m[4]), mapper: m[5] ?? '' } : undefined;
 };
 
 // ---- your plays ----
@@ -143,8 +152,7 @@ export const latestMark = async (): Promise<string> => {
 /** Your recent 7K plays, newest first, each with its XP per skill and its map. */
 export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	if (!characterId) {
-		let me = null;
-		try { me = await api?.me?.({ ruleset: 'mania7k' }); } catch { me = null; }
+		const me = await askMe(api);
 		characterId = num(me?.character_id);
 	}
 	let id = characterId;
@@ -180,7 +188,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
  * Saves maps (best first) into the add-on's own game playlist, named `name`, and returns its id. The first save makes
  * the playlist; later saves replace its maps. Only that playlist is ever written: the others are never touched.
  */
-export const savePlaylist = async (id: number, name: string, maps: { beatmapId: number, rate: number }[]): Promise<number> => {
+export const savePlaylist = async (id: number, name: string, maps: { beatmapId: number, rate: number, repeat?: number }[]): Promise<number> => {
 	if (!playingAs) throw new TrackerError(TEXT.errors.noCharacter);
 	let playlist = id ? num(await gameDb.value('SELECT id FROM playlist WHERE id = ? AND characterId = ?', [id, playingAs])) : 0;
 	if (!playlist) {
@@ -194,8 +202,8 @@ export const savePlaylist = async (id: number, name: string, maps: { beatmapId: 
 		{ sql: 'UPDATE playlist SET name = ? WHERE id = ?', params: [name, playlist] },
 		{ sql: 'DELETE FROM playlist_entry WHERE playlistId = ?', params: [playlist] },
 		...maps.map((m, i) => ({
-			sql: "INSERT INTO playlist_entry (playlistId, beatmapId, rate, mods, position, repeat) VALUES (?, ?, ?, '', ?, 1)",
-			params: [playlist, m.beatmapId, m.rate, i + 1],
+			sql: "INSERT INTO playlist_entry (playlistId, beatmapId, rate, mods, position, repeat) VALUES (?, ?, ?, '', ?, ?)",
+			params: [playlist, m.beatmapId, m.rate, i + 1, Math.max(1, Math.round(m.repeat ?? 1))],
 		})),
 	]);
 	return playlist;
@@ -217,6 +225,71 @@ type StrainStore = { game?: [minutes: number, at: number], prior?: [minutes: num
  *  change, as a number; 0.1.36 also how much of the map strained you (`strained`, no longer used). */
 export type StrainPlay = { v?: number, bar?: number, strained?: number, len?: number };
 let strainStore: StrainStore | undefined;
+
+// ---- for the debug view: the game's API calls, and the newest plays ----
+
+const API_LOG_KEY = 'api-log';
+/** How many API calls the debug view keeps (newest first). */
+const API_LOG_KEEP = 100;
+/** How many plays the debug view shows (the newest 7K ones), and how many of your newest plays it reads to find them. */
+const DEBUG_PLAYS = 50, DEBUG_READ = 500;
+type ApiCall = { at: number, call: string, ms: number, answer?: unknown, error?: string };
+let apiLog: Promise<ApiCall[]> | undefined;
+
+/** The call log, read once from this computer (the tracker's own store, so it doesn't fill the game's storage). */
+const apiLogOf = () => (apiLog ??= cacheGet<ApiCall[]>(API_LOG_KEY).then((d) => (Array.isArray(d) ? d : [])));
+
+/** The game's `api.me` for 7K, kept in the debug view's call log; null when it isn't there or fails. */
+const askMe = async (api: Api | undefined) => {
+	if (!api?.me) return null;
+	const at = Date.now(), entry: ApiCall = { at, call: "me({ ruleset: 'mania7k' })", ms: 0 };
+	let me = null;
+	try {
+		me = (await api.me({ ruleset: 'mania7k' })) ?? null;
+		entry.answer = me;
+	} catch (e) {
+		entry.error = String(e);
+	}
+	entry.ms = Date.now() - at;
+	const log = await apiLogOf();
+	log.unshift(entry);
+	log.splice(API_LOG_KEEP);
+	void cacheSet(API_LOG_KEY, log);
+	return me;
+};
+
+/** Your strain now and your Stamina upgrades (which move Peak), from the game's last answer, rested a minute per
+ *  minute since; undefined before the game was asked. */
+export const strainNow = async (): Promise<{ minutes: number, upgrades: number } | undefined> => {
+	const call = (await apiLogOf()).find((c) => c.answer);
+	const me = call?.answer as { fatigue?: { minutes?: number }, skills?: { stamina?: { upgrades?: number } } } | undefined;
+	const minutes = me?.fatigue?.minutes;
+	if (!call || typeof minutes !== 'number') return undefined;
+	return { minutes: restedStrain(minutes, (Date.now() - call.at) / 60e3), upgrades: num(me?.skills?.stamina?.upgrades) };
+};
+
+/** Everything the debug view shows: the last 100 API calls, the strain store, the catalogue, and the newest plays with
+ *  every column the game keeps, their map and their noted strain. Read only from this computer. */
+export const debugData = async (): Promise<Record<string, unknown>> => {
+	const s = strainStoreOf(), id = playingAs || characterId;
+	const cat = await mapCatalog([]);
+	const rows = id ? await rowsOf(
+		`SELECT s.*, x.gains AS xpGains FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
+		 WHERE s.characterId = ? ORDER BY s.playedAt DESC LIMIT ?`, [id, DEBUG_READ]) : null;
+	const time = (t: unknown) => (num(t) ? new Date(num(t)).toISOString() : t);
+	return {
+		api: (await apiLogOf()).map((c) => ({ ...c, at: time(c.at), atMs: c.at })),
+		strain: { game: s.game && { minutes: s.game[0], at: time(s.game[1]) }, prior: s.prior && { minutes: s.prior[0], at: time(s.prior[1]) }, waits: s.waits ?? 0, playsNoted: Object.keys(s.plays).length },
+		catalog: { maps: Object.keys(cat.maps).length, fetchedAt: time(cat.at), triedAt: time(cat.tried), missing: cat.missing ?? {} },
+		character: id,
+		// 7K plays only, as in the lists
+		plays: rows === null ? 'the game database is not open' : rows.filter((r) => is7kPlay(infoOf(cat, num(r.beatmapId)), parseGains(r.xpGains))).slice(0, DEBUG_PLAYS).map((r) => {
+			const at = num(r.playedAt);
+			// strain: the bar after the play (0-1) and the change per minute of the map, as the tracker noted them
+			return { ...r, playedAt: time(at), playedAtMs: at, map: infoOf(cat, num(r.beatmapId)) ?? 'not in the catalogue', strain: strainOf(at) ?? 'not noted' };
+		}),
+	};
+};
 
 const strainStoreOf = (): StrainStore => {
 	if (strainStore) return strainStore;
@@ -244,16 +317,20 @@ export const strainOf = (playedAt: number): StrainPlay | undefined => {
  * Called when a new play shows up (and when the tracker opens). True when a play was noted.
  */
 export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
-	let me = null;
-	try { me = await api?.me?.({ ruleset: 'mania7k' }); } catch { me = null; }
-	// the game's strain is as it set it at the end of your last play, with when (`at`), not as it is now
-	const minutes = me?.fatigue?.minutes, setAt = Date.parse(String(me?.fatigue?.at ?? ''));
+	const me = await askMe(api);
+	// the game gives your strain now (rested since `at`, the end of your last play, a minute per minute), so the
+	// strain it set at `at` is that plus the rest since: kept from the first check after `at` only, as later checks
+	// would rest it again
+	const now = me?.fatigue?.minutes, setAt = Date.parse(String(me?.fatigue?.at ?? ''));
 	const id = num(me?.character_id);
-	if (typeof minutes !== 'number' || !Number.isFinite(setAt) || !id) return false;
+	if (typeof now !== 'number' || !Number.isFinite(setAt) || !id) return false;
 	const s = strainStoreOf();
 	// when the game sets a new strain, the one it had is the one before it
-	if (s.game && s.game[1] !== setAt) s.prior = s.game;
-	s.game = [minutes, setAt];
+	if (!s.game || s.game[1] !== setAt) {
+		if (s.game) s.prior = s.game;
+		s.game = [strainWhenSet(now, (Date.now() - setAt) / 60e3), setAt];
+	}
+	const minutes = s.game[0];
 	delete s.last;
 	const newest = (await rowsOf('SELECT playedAt, beatmapId, rate FROM score WHERE characterId = ? ORDER BY playedAt DESC LIMIT 1', [id]))?.[0];
 	const at = num(newest?.playedAt);

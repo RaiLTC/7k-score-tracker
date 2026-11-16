@@ -13,6 +13,13 @@ const STILL = 0.05;
 export const strainPerMinute = (before, after, lengthMin) => (lengthMin > 0 ? (after - before) / lengthMin : 0);
 
 /**
+ * The strain the game set at the end of a play, from the strain it gives `sinceMin` minutes later: it gives it rested
+ * since then, a minute per minute. 0 stays 0 (rested out; what it was isn't known, and it no longer matters).
+ * @param {number} now @param {number} sinceMin
+ */
+export const strainWhenSet = (now, sinceMin) => (now > 0 ? now + Math.max(0, sinceMin) : 0);
+
+/**
  * The strain left after resting `restMin` minutes: a minute of rest takes off a minute of strain, down to 0
  * (fatigue.ts restedFatigue, without the rest-speed gene).
  * @param {number} minutes @param {number} restMin

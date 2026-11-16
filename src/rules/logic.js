@@ -8,7 +8,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
 
 /**
  * @typedef {Record<string, number>} Gains  XP per skill
- * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number, stars?: number }} MapInfo
+ * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number, stars?: number, mapper?: string }} MapInfo
  * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number }} Play
  * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, nXp: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, prevAt: number, prevXp: number, perPlay: number, perMinute: number }} MapStats
  */
@@ -109,8 +109,8 @@ export const bestBySkill = (maps, count = 5) => SKILLS_7K.map((skill) => ({
 /** @typedef {{ words: string[], tags: SearchTag[] }} Search */
 
 const TAG_KEYS = /** @type {Record<string, 'length' | 'skill' | 'stars'>} */ ({
-	length: 'length', len: 'length', skill: 'skill', skills: 'skill',
-	'star-rating': 'stars', stars: 'stars', star: 'stars',
+	length: 'length', len: 'length', ln: 'length', skill: 'skill', skills: 'skill', sk: 'skill',
+	'star-rating': 'stars', stars: 'stars', star: 'stars', sr: 'stars',
 });
 
 /** "90" or "90s" → 90, "1m30" or "1m30s" → 90, "2m" → 120; null when it isn't a length. @param {string} v */

@@ -2,8 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agoText, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/logic.js';
-import { arrowsOf, restedStrain, strainPerMinute } from '../src/strain.js';
+import { agoText, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/rules/logic.js';
+import { arrowsOf, restedStrain, strainPerMinute, strainWhenSet } from '../src/rules/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
 const map = (keys, lengthSec) => ({ title: 'Song', difficulty: 'Hard', keys, lengthSec });
@@ -70,7 +70,7 @@ test('averages use only the latest plays when limited', () => {
 });
 
 test('search: words and tags', async () => {
-	const { parseSearch, fitsSearch, lengthOf } = await import('../src/logic.js');
+	const { parseSearch, fitsSearch, lengthOf } = await import('../src/rules/logic.js');
 	assert.equal(lengthOf('1m30'), 90);
 	assert.equal(lengthOf('90'), 90);
 	assert.equal(lengthOf('2m'), 120);
@@ -91,7 +91,7 @@ test('search: words and tags', async () => {
 });
 
 test('search: != means not', async () => {
-	const { parseSearch, fitsSearch } = await import('../src/logic.js');
+	const { parseSearch, fitsSearch } = await import('../src/rules/logic.js');
 	const info = { title: 'Clover', difficulty: 'Another', keys: 7, lengthSec: 120, stars: 5.4 };
 	const fits = (t) => fitsSearch(parseSearch(t), info, 1, 1, { accuracy: 600, speed: 300, jacks: 50 });
 	assert.ok(!fits('skill!=accuracy'));
@@ -118,4 +118,12 @@ test('strain per minute of the map and its arrows', () => {
 	assert.equal(arrowsOf(-0.2), -1);
 	assert.equal(arrowsOf(-0.5), -2);
 	assert.equal(arrowsOf(-1), -3);
+});
+
+test("the strain the game set at a play's end is what it gives later plus the rest since (the game's answers, 16 Nov)", () => {
+	// set 07:36:23.401; given 30.667 at 07:39:45.098 and 33.155 at 07:37:15.777: both 34.0 when set
+	assert.equal(Math.round(strainWhenSet(30.667, (Date.parse('2026-11-16T07:39:45.098Z') - Date.parse('2026-11-16T07:36:23.401Z')) / 60e3) * 100) / 100, 34.03);
+	assert.equal(Math.round(strainWhenSet(33.155, (Date.parse('2026-11-16T07:37:15.777Z') - Date.parse('2026-11-16T07:36:23.401Z')) / 60e3) * 100) / 100, 34.03);
+	assert.equal(strainWhenSet(0, 5), 0);
+	assert.equal(strainWhenSet(10, -1), 10);
 });

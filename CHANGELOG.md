@@ -2,6 +2,31 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.0] - 2026-11-16
+
+### Added
+
+- Add a Strain tab: your best warming and cooling maps, or the plays that take you to Peak, from your plays in the Strain time (3 hours by default), to save as a playlist
+- Add a changelog
+- Add a debug view, with API calls and plays you can select to copy
+- Add search help and short tags: ln, sk, sr
+
+### Changed
+
+- Rename the tabs to Recent, Effective Maps, Skills and Strain, and Most effective maps to Effective Maps throughout
+- Group the settings
+- Scroll the settings page when it doesn't fit
+- Show only strain arrows in the recent list and Effective Maps
+- Add a 3-second cooldown to Refresh
+- Use the short tags in the search bar's hints
+- Store the debug view's API log in the tracker's own storage
+
+### Fixed
+
+- Fix strain changes that counted rest twice after a break
+- Show the system cursor over the window
+- Centre the settings icon
+
 ## [0.1.37] - 2026-11-15
 
 ### Changed

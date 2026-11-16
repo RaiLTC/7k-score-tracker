@@ -2,21 +2,23 @@
 // a setting added later simply starts at its default.
 
 import { createSettings, parseHotkey } from '@oss-idle/addon-sdk';
-import { SKILLS_7K } from './logic.js';
+import { SKILLS_7K } from './rules/logic.js';
 
-export type View = 'plays' | 'best' | 'skills';
+export type View = 'plays' | 'best' | 'skills' | 'suggest';
 export type Unit = 'h' | 'm' | 's';
 export type ButtonStyle = 'solid' | 'outlined' | 'tinted';
 export type SkillsAs = 'bar' | 'top';
 export type StrainAs = 'bar' | 'change';
+/** What the Strain tab suggests: the maps that strain or rest you the most, or the plays that take you to Peak. */
+export type StrainMode = 'max' | 'peak';
 export type RecentShow = 'show' | 'hide';
 export type RecentUnit = 'm' | 'h';
 export type OnOff = 'off' | 'on';
 export type AccentId = 'neutral' | 'cold' | 'warming' | 'peak' | 'pushing' | 'fatigued' | 'osu' | 'custom';
 export type Settings = {
-	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, strainAs: StrainAs, accent: AccentId, customAccent: string,
+	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, strainAs: StrainAs, strainMode: StrainMode, accent: AccentId, customAccent: string,
 	recent: RecentShow, recentFor: number, recentUnit: RecentUnit, recentCount: number, bestCount: number, avgOf: number, avgOfRecent: number,
-	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit,
+	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit, strainFor: number, strainUnit: RecentUnit,
 	/** Skills hidden in Most effective maps and the recent list: `hidden`, maps that give it the most XP; `removed`,
 	 *  every map it's one of the top 2 skills of. */
 	hidden: string[], removed: string[],
@@ -29,8 +31,8 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 };
 
 export const DEFAULTS: Settings = {
-	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', hidden: [], removed: [], playlistId: 0,
+	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', strainMode: 'max', accent: 'neutral', customAccent: '#4fd1c5',
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', hidden: [], removed: [], playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -40,7 +42,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The number settings (how long counts as recent, how many maps each list shows, how many plays are averaged): a
  *  whole number from 1 (or `min`) to 999, or null. */
-export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent', 'oldFor'] as const;
+export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent', 'oldFor', 'strainFor'] as const;
 export const wholeOf = (v: unknown, min = 1): number | null => {
 	const n = Number(v);
 	return v !== '' && Number.isInteger(n) && n >= min && n <= 999 ? n : null;
@@ -53,6 +55,8 @@ export const oldMs = (s: Settings): number => s.oldFor * (s.oldUnit === 'h' ? 36
 
 /** How long counts as recent, in milliseconds. */
 export const recentMs = (s: Settings): number => s.recentFor * (s.recentUnit === 'h' ? 3600e3 : 60e3);
+/** How far back the Strain tab's plays go. */
+export const strainMs = (s: Settings): number => s.strainFor * (s.strainUnit === 'h' ? 3600e3 : 60e3);
 
 /** Saved settings, kept valid: anything broken falls back to its default. */
 export const loadSettings = (): Settings => {
@@ -61,15 +65,17 @@ export const loadSettings = (): Settings => {
 	try { parseHotkey(s.hotkey); hotkey = s.hotkey; } catch { /* the default */ }
 	return {
 		hotkey,
-		view: oneOf(s.view, ['plays', 'best', 'skills'], DEFAULTS.view),
+		view: oneOf(s.view, ['plays', 'best', 'skills', 'suggest'], DEFAULTS.view),
 		unit: oneOf(s.unit, ['h', 'm', 's'], DEFAULTS.unit),
 		buttons: oneOf(s.buttons, ['solid', 'outlined', 'tinted'], DEFAULTS.buttons),
 		skillsAs: oneOf(s.skillsAs, ['bar', 'top'], DEFAULTS.skillsAs),
 		strainAs: oneOf(s.strainAs, ['bar', 'change'], DEFAULTS.strainAs),
+		strainMode: oneOf(s.strainMode, ['max', 'peak'], DEFAULTS.strainMode),
 		accent: oneOf(s.accent, [...Object.keys(ACCENTS) as AccentId[], 'custom'], DEFAULTS.accent),
 		customAccent: HEX.test(s.customAccent) ? s.customAccent : DEFAULTS.customAccent,
 		recent: oneOf(s.recent, ['show', 'hide'], DEFAULTS.recent),
 		recentFor: wholeOf(s.recentFor) ?? DEFAULTS.recentFor,
+		strainFor: wholeOf(s.strainFor) ?? DEFAULTS.strainFor,
 		recentCount: wholeOf(s.recentCount) ?? DEFAULTS.recentCount,
 		bestCount: wholeOf(s.bestCount) ?? DEFAULTS.bestCount,
 		avgOf: wholeOf(s.avgOf) ?? DEFAULTS.avgOf,
@@ -81,6 +87,7 @@ export const loadSettings = (): Settings => {
 		removed: Array.isArray(s.removed) ? s.removed.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],
 		playlistId: Number.isInteger(s.playlistId) && s.playlistId > 0 ? s.playlistId : 0,
 		recentUnit: oneOf(s.recentUnit, ['m', 'h'], DEFAULTS.recentUnit),
+		strainUnit: oneOf(s.strainUnit, ['m', 'h'], DEFAULTS.strainUnit),
 	};
 };
 

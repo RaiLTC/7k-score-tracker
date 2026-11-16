@@ -17,7 +17,7 @@
 	width: min(900px, 94vw); height: min(880px, 92vh); display: flex; flex-direction: column; gap: 10px; padding: 12px;
 	font-family: inherit; font-size: 13px; line-height: 1.4; color: var(--text);
 	background: linear-gradient(180deg, #1a1c26, var(--bg)); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 80px rgb(0 0 0 / 55%);
-	pointer-events: auto;
+	pointer-events: auto; cursor: default;
 }
 .window[hidden] { display: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -33,6 +33,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .spacer { margin-left: auto; }
 .btn { height: 30px; padding: 0 14px; background: none; border: 1px solid #3a3b45; border-radius: 8px; }
 .btn:hover { background: var(--hover); }
+/* Refresh while it cools down: dimmed, and not pressable */
+.btn[aria-disabled='true'] { opacity: 0.55; cursor: default; pointer-events: none; }
+.btn[data-action='refresh'] { min-width: 118px; }
 .btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
 .card-head .save-playlist { margin-left: auto; align-self: center; }
 .detail .btn.small { margin-top: 8px; }
@@ -61,7 +64,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* one view at a time, full width, so map names have room */
 .panels { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* the search box: under the header, the window's full width */
-.search { display: flex; }
+.search { position: relative; display: flex; }
+.search-field { padding-right: 40px; }
+.search-help { position: absolute; top: 5px; right: 6px; width: 24px; height: 24px; padding: 0; color: var(--muted); background: var(--hover); border: 0; border-radius: 6px; font-size: 12px; font-weight: 600; }
+.search-help:hover, .search-help[aria-expanded='true'] { color: var(--text); background: var(--line-strong); }
+/* the search help: a small window under the search bar, over the lists */
+.search-pop { position: absolute; top: 40px; right: 0; z-index: 2; width: min(540px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / 50%); }
+.search-pop[hidden] { display: none; }
+.search-pop-head { display: flex; align-items: center; justify-content: space-between; }
+.search-pop .ops { display: grid; grid-template-columns: 64px 1fr auto; gap: 6px 14px; align-items: baseline; font-size: 12px; }
+.search-pop .ops > :nth-child(3n+1) { justify-self: start; }
+.search-pop .ops .ex { justify-self: end; color: var(--muted); }
+.search-pop .ops-label { padding-top: 2px; font-weight: 500; }
+.search-pop code { padding: 1px 6px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 5px; font: 12px ui-monospace, Consolas, monospace; white-space: nowrap; }
 .search-field { flex: 1; min-width: 0; height: 34px; padding: 0 12px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
 .search-field::placeholder { color: var(--muted); }
 .search-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -97,6 +112,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .arrows.warm { padding-left: 4px; }
 .strain .cool { color: #4f9cf5; }
 .strain .warm { color: #f0883e; }
+/* arrows on their own (Most effective maps, the recent list): in the middle of the column */
+.strain .arrows-only { white-space: nowrap; text-align: center; }
 .row.stale .strain span { color: #6b6c75 !important; }
 .map { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .map span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -122,7 +139,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .keybind { min-width: 140px; height: 32px; padding: 0 14px; background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; }
 .keybind:hover { border-color: #4a4b55; }
 .keybind.recording { border-color: var(--accent); color: var(--muted); }
-.icon-btn { width: 28px; height: 28px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 15px; }
+.icon-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; color: var(--muted); background: none; border: 0; border-radius: 6px; font-size: 15px; }
+.icon-btn svg { display: block; }
 .icon-btn:hover, .icon-btn[aria-pressed=true] { color: var(--text); background: var(--line); }
 
 /* the Skills box (which colour is which skill), and the Top skills column */
@@ -150,6 +168,60 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* settings rows, and the accent swatches */
 .settings-row + .settings-row { border-top: 0.5px solid var(--line); }
+/* each group of settings in a box of its own, its name at the top */
+.settings-box { flex: none; margin-top: 10px; padding: 2px 14px; background: color-mix(in srgb, var(--text) 2%, transparent); border: 1px solid var(--line-strong); border-radius: 8px; }
+.card-head + .settings-box { margin-top: 4px; }
+.settings-group { padding: 10px 0 6px; color: var(--text); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+.settings { overflow-y: auto; }
+
+/* the debug view: its card as a plain console */
+.search[hidden] { display: none; }
+.card.debug { background: #000; border-color: #1c1c1c; font-family: ui-monospace, Consolas, monospace; }
+.card.debug .card-head { border-image: none; border-bottom: 1px solid #1c1c1c; }
+/* the changelog: a block per version */
+.changelog-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.log { flex: none; border: 1px solid var(--line-strong); border-radius: 6px; }
+.log > summary { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; cursor: pointer; list-style: none; }
+.log > summary::-webkit-details-marker { display: none; }
+.log > summary::before { content: '▸'; color: var(--muted); }
+.log[open] > summary::before { content: '▾'; }
+.log > summary:hover { background: var(--hover); }
+.log-version { font-size: 14px; font-weight: 600; }
+.log-body { padding: 0 12px 10px 30px; }
+.log-kind { margin: 8px 0 2px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.changelog-body ul { margin: 0; padding-left: 18px; }
+.changelog-body li { margin: 2px 0; line-height: 1.45; }
+/* Suggest: two groups, each with its own heading and Replace queue */
+.suggest-from { margin-left: auto; align-self: center; }
+.suggest-now { align-self: center; }
+.suggest-warn { flex: none; margin-bottom: 8px; padding: 6px 10px; color: #e8c147; background: color-mix(in srgb, #e8c147 8%, transparent); border-radius: 6px; font-size: 12px; }
+.suggest-body { flex: 1; min-height: 0; margin: 0 -14px; padding: 0 14px; overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.suggest-group { display: flex; flex-direction: column; }
+.suggest-head { display: flex; align-items: baseline; gap: 10px; padding: 4px 0 6px; }
+.suggest-head .btn { align-self: center; }
+.suggest-note { padding: 0 0 6px; font-size: 12px; }
+.suggest-head .btn:first-of-type { margin-left: auto; }
+.suggest-group .list { flex: none; overflow: visible; margin: 0 -14px; }
+.copy-all { margin-left: auto; align-self: center; }
+.dbg-list .dbg > summary > span { white-space: pre; }
+.debug-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.dbg { flex: none; border: 1px solid #1f1f1f; border-radius: 6px; }
+.dbg > summary { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 3px 10px; color: #d8d8d8; cursor: pointer; }
+.dbg > summary::before { content: '▸'; color: #6b6c75; }
+.dbg[open] > summary::before { content: '▾'; }
+.dbg > summary::-webkit-details-marker { display: none; }
+.dbg > summary > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dbg pre { margin: 0; padding: 8px 12px; color: #9fe39f; font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; border-top: 1px solid #1f1f1f; }
+.dbg-list { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-top: 1px solid #1f1f1f; }
+.dbg-list .dbg > summary { color: #b8b8b8; font-size: 12px; }
+/* Recent plays in Debug: a tick per play, and Select all above them */
+.dbg-select { display: flex; align-items: center; gap: 12px; padding: 2px 4px 4px; font-size: 12px; color: #d8d8d8; }
+.dbg-select label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.dbg-pick { display: flex; align-items: flex-start; gap: 8px; }
+.dbg-pick > input { flex: none; margin: 10px 0 0 4px; }
+.dbg-pick > .dbg { flex: 1; min-width: 0; }
+.dbg input[type='checkbox'], .dbg-pick > input { accent-color: var(--accent); cursor: pointer; }
+.dbg .mapper { color: #7a7a82; font-size: 10px; }
 .swatches { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 320px; }
 .swatches button { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; outline: 2px solid transparent; outline-offset: 2px; }
 .swatches button[aria-checked='true'] { outline-color: var(--text); }

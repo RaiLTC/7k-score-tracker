@@ -1,15 +1,15 @@
 // The tracker's lists as HTML: a row per play or per map, each followed by its (closed) XP-per-skill breakdown.
 // Every text that comes from data is escaped.
 
-import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from './logic.js';
-import { strainOf } from './data.js';
-import type { SkillsAs, StrainAs, Unit } from './settings.js';
-import { arrowsOf } from './strain.js';
+import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from '../rules/logic.js';
+import { strainOf } from '../game/data.js';
+import type { SkillsAs, StrainAs, Unit } from '../settings.js';
+import { arrowsOf } from '../rules/strain.js';
 import { TEXT } from './text.js';
 
 // Each skill's colour is a class (sk-speed, …) in styles.css; only sizes that come from data are inline.
 
-const esc = (s: unknown): string => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+export const esc = (s: unknown): string => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 const rateText = (rate: number) => String(num(rate) || 1);
 const skillName = (sk: string) => TEXT.skills[sk] ?? sk;
 /** The share a skill needs to show in the Top skills column. */
@@ -102,8 +102,13 @@ export const showStrainAs = (as: StrainAs): void => { strainAs = as; };
 /** A play's strain, with the arrows for how it moved it (› straining, orange; ‹ resting, blue) either side: the
  *  strain bar after it in its zone's colour, as Queue Helper shows it, or the strain minutes it added (+) or rested
  *  (−) per minute of the map. The value stays in the middle of the column. */
-const strainCells = (playedAt: number) => {
-	const x = strainOf(playedAt);
+const strainCells = (playedAt: number, arrowsOnly = false, v?: number) => {
+	const x = v === undefined ? strainOf(playedAt) : { v };
+	if (arrowsOnly) {
+		const n = x?.v === undefined ? undefined : arrowsOf(x.v);
+		if (!n) return `<span class="strain"><span></span><span class="muted" title="${n === undefined ? TEXT.noStrain : TEXT.arrowsHelp}">–</span><span></span></span>`;
+		return `<span class="strain" title="${TEXT.arrowsHelp}"><span></span><span class="arrows-only ${n > 0 ? 'warm' : 'cool'}">${(n > 0 ? '›' : '‹').repeat(Math.abs(n))}</span><span></span></span>`;
+	}
 	const shown = strainAs === 'bar' ? x?.bar : x?.v;
 	if (shown === undefined) return `<span class="strain"><span></span><span class="muted" title="${TEXT.noStrain}">–</span><span></span></span>`;
 	const arrows = x?.v === undefined ? 0 : arrowsOf(x.v);
@@ -163,7 +168,7 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 };
 
 /** The most effective maps; a map not played since `since` (if given) is grayed out, with `staleText` as its tooltip. */
-export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest): string => {
+export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest, arrowsOnly = false, vOf?: (m: MapStats) => number | undefined, plainXp = false): string => {
 	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
 	const grade = gradeOf(maps.filter((m) => m.lastAt >= since).map((m) => m.perMinute));
@@ -172,9 +177,9 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 		${mapCell(m.info, m.beatmapId)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
-		${xpCell(m.lastXp, m.prevXp)}
+		${xpCell(m.lastXp, plainXp ? 0 : m.prevXp)}
 		${rateCell(m.perMinute, unit, m.lastAt < since ? undefined : grade)}
-		${strainCells(m.lastAt)}
+		${strainCells(m.lastAt, arrowsOnly, vOf?.(m))}
 		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`).join('')}`;
 };
@@ -198,6 +203,30 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 			${strainCells(x.map.lastAt)}
 		</div>`).join(''))(gradeOf(top.map((x) => x.perMinute)))}
 	</details>`).join('');
+};
+
+/** The changelog (CHANGELOG.md) as HTML: a box per version (the newest open), its kinds of change, and a line per change. */
+export const changelogHtml = (md: string): string => {
+	const out: string[] = [];
+	let list = false, box = false;
+	const close = () => { if (list) out.push('</ul>'); list = false; };
+	for (const line of md.split('\n')) {
+		const version = /^## \[(.+?)\](?: - (.+))?/.exec(line);
+		if (version) {
+			close();
+			if (box) out.push('</div></details>');
+			out.push(`<details class="log"${box ? '' : ' open'}><summary><span class="log-version">${esc(version[1])}</span><span class="muted">${esc(version[2] ?? '')}</span></summary><div class="log-body">`);
+			box = true;
+			continue;
+		}
+		const kind = /^### (.+)/.exec(line);
+		if (kind) { close(); out.push(`<h4 class="log-kind">${esc(kind[1])}</h4>`); continue; }
+		const item = /^- (.+)/.exec(line);
+		if (item && box) { if (!list) out.push('<ul>'); list = true; out.push(`<li>${esc(item[1])}</li>`); }
+	}
+	close();
+	if (box) out.push('</div></details>');
+	return out.join('');
 };
 
 export const messageHtml =(text: string, error = false) => `<div class="empty${error ? ' error' : ''}">${esc(text)}</div>`;
