@@ -11,7 +11,7 @@ import { arrowsOf } from './rules/strain.js';
 import styles from './ui/styles.css';
 import { CHANGELOG } from './ui/changelog.js';
 import { TEXT } from './ui/text.js';
-import { bestHtml, bySkillHtml, changelogHtml, esc, legendHtml, listedPlays, messageHtml, playsHtml, showStrainAs } from './ui/view.js';
+import { bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, playsHtml, showStrainAs } from './ui/view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings' | 'debug' | 'changelog';
@@ -233,9 +233,10 @@ export class Tracker extends Addon {
 				// with old plays left out, only the newer ones count (a map played only before then drops out)
 				const kept = s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays;
 				const none = searching(query) ? TEXT.noMatch : undefined;
-				bestList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(kept, s.avgOf))).slice(0, s.bestCount), s.unit, s.skillsAs, since, TEXT.stale(title), none, true);
-				// the recent list counts only the plays inside the time
-				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true);
+				const best = shownSkills(keepMaps(bestMaps(kept, s.avgOf))).slice(0, s.bestCount);
+				bestList.innerHTML = bestHtml(best, s.unit, s.skillsAs, since, TEXT.stale(title), none, true);
+				// the recent list counts only the plays inside the time, coloured as Effective Maps colours them
+				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best, since));
 			} else {
 				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(plays, s.avgOf)), s.unit);
 			}

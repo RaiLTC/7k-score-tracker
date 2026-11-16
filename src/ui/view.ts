@@ -85,7 +85,7 @@ const GRADE = [[248, 113, 113], [240, 136, 62], [232, 193, 71], [74, 222, 128]];
 const gradeOf = (values: number[]) => {
 	const shown = values.filter((v) => v > 0), lo = Math.min(...shown), hi = Math.max(...shown);
 	return (v: number): string => {
-		const x = (hi > lo ? (v - lo) / (hi - lo) : 1) * (GRADE.length - 1), i = Math.min(GRADE.length - 2, Math.floor(x)), f = x - i;
+		const x = (hi > lo ? Math.min(1, Math.max(0, (v - lo) / (hi - lo))) : 1) * (GRADE.length - 1), i = Math.min(GRADE.length - 2, Math.floor(x)), f = x - i;
 		return `rgb(${GRADE[i]!.map((c, n) => Math.round(c + (GRADE[i + 1]![n]! - c) * f)).join(',')})`;
 	};
 };
@@ -167,11 +167,15 @@ export const playsHtml = (all: Play[], now: number, unit: Unit, as: SkillsAs, si
 	}).join('')}`;
 };
 
-/** The most effective maps; a map not played since `since` (if given) is grayed out, with `staleText` as its tooltip. */
-export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest, arrowsOnly = false, vOf?: (m: MapStats) => number | undefined, plainXp = false): string => {
+/** The XP per time values a list of maps is coloured against: the ones not grayed out. */
+export const gradeScale = (maps: MapStats[], since = 0): number[] => maps.filter((m) => m.lastAt >= since).map((m) => m.perMinute);
+
+/** The most effective maps; a map not played since `since` (if given) is grayed out, with `staleText` as its tooltip.
+ *  XP per time is coloured against `scale` (another list's, from gradeScale), or against this list. */
+export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest, arrowsOnly = false, vOf?: (m: MapStats) => number | undefined, plainXp = false, scale?: number[]): string => {
 	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
-	const grade = gradeOf(maps.filter((m) => m.lastAt >= since).map((m) => m.perMinute));
+	const grade = gradeOf(scale?.length ? scale : gradeScale(maps, since));
 	return `<div class="row head-row"><span>${c.number}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m, i) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
 		<span class="muted">${i + 1}</span>
 		${mapCell(m.info, m.beatmapId)}

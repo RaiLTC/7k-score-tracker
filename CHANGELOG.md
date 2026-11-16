@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.1] - 2026-11-16
+
+### Changed
+
+- Colour the last hour list's XP/per as Effective Maps colours it
+
 ## [1.0.0] - 2026-11-16
 
 ### Added
