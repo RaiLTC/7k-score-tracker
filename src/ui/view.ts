@@ -199,8 +199,9 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`).join('')}`;
 };
 
-/** The Skills tab: for each skill, the maps that gave it the most XP per minute of play. */
-export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
+/** The Skills tab: for each skill, the maps that gave it the most XP per minute of play; a map not played since
+ *  `since` is grayed out, as in Effective Maps. */
+export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = ''): string => {
 	const groups = bestBySkill(maps);
 	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols, now = Date.now();
@@ -208,16 +209,16 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit): string => {
 	return groups.map(({ skill, maps: top }) => `<details class="skill-group" data-key="${skill}">
 		<summary class="skill-group-head"><i class="dot sk-${skill}"></i>${skillName(skill)}<span class="best-map">${esc(top[0]!.map.info?.title ?? TEXT.map(top[0]!.map.beatmapId))}<span class="diff">${esc(top[0]!.map.info?.difficulty ?? '')}</span></span></summary>
 		<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${c.perPlay}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span></div>
-		${((grade) => top.map((x) => `<div class="row">
+		${((grade) => top.map((x) => `<div class="row${x.map.lastAt < since ? ' stale' : ''}"${x.map.lastAt < since ? ` title="${esc(staleText)}"` : ''}>
 			<span class="muted">${agoText(now - x.map.lastAt)}</span>
 			<button type="button" class="map-link" data-only="${x.map.beatmapId}" title="${TEXT.onlyMap}">${mapCell(x.map.info, x.map.beatmapId, '', true)}</button>
 			<span class="muted">${rateText(x.map.rate)}</span>
 			<span class="muted">${x.map.n}</span>
 			<span>${xpText(x.map.lastXp)}</span>
 			<span>${xpText(x.perPlay)}</span>
-			${rateCell(x.perMinute, unit, grade)}
-			${strainCells(x.map.lastAt)}
-		</div>`).join(''))(gradeOf(top.map((x) => x.perMinute)))}
+			${rateCell(x.perMinute, unit, x.map.lastAt < since ? undefined : grade)}
+			${strainCells(x.map.lastAt, true)}
+		</div>`).join(''))(gradeOf(top.filter((x) => x.map.lastAt >= since).map((x) => x.perMinute)))}
 	</details>`).join('');
 };
 

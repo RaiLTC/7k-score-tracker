@@ -2,7 +2,7 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.1.0] - 2026-11-16
+## [1.1.1] - 2026-11-16
 
 ### Added
 
@@ -13,14 +13,11 @@ All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](h
 
 ### Changed
 
+- Colour the last hour list's XP/per as Effective Maps colours it
 - Rename XP to Total XP in Recent
 - Remove the # column
-
-## [1.0.1] - 2026-11-16
-
-### Changed
-
-- Colour the last hour list's XP/per as Effective Maps colours it
+- Gray out maps in Skills you haven't played lately, as in Effective Maps
+- Show only strain arrows in Skills
 
 ## [1.0.0] - 2026-11-16
 
