@@ -285,7 +285,7 @@ export const strainNow = async (): Promise<{ minutes: number, upgrades: number }
 
 /** Everything the debug view shows: the last 100 API calls, the strain store, the catalogue, and the newest plays with
  *  every column the game keeps, their map and their noted strain. Read only from this computer. */
-export const debugData = async (): Promise<Record<string, unknown>> => {
+export const debugData = async (keep?: (info: MapInfo | undefined, beatmapId: number, rate: number, gains: Play['gains'], playedAt: number) => boolean): Promise<Record<string, unknown>> => {
 	const s = strainStoreOf(), id = playingAs || characterId;
 	const cat = await mapCatalog([]);
 	const rows = id ? await rowsOf(
@@ -299,12 +299,31 @@ export const debugData = async (): Promise<Record<string, unknown>> => {
 		catalog: { maps: Object.keys(cat.maps).length, fetchedAt: time(cat.at), triedAt: time(cat.tried), missing: cat.missing ?? {} },
 		character: id,
 		// 7K plays only, as in the lists
-		plays: rows === null ? 'the game database is not open' : rows.filter((r) => is7kPlay(infoOf(cat, num(r.beatmapId)), parseGains(r.xpGains))).slice(0, DEBUG_PLAYS).map((r) => {
-			const at = num(r.playedAt);
-			// strain: the bar after the play (0-1) and the change per minute of the map, as the tracker noted them
-			return { ...r, playedAt: time(at), playedAtMs: at, map: infoOf(cat, num(r.beatmapId)) ?? 'not in the catalogue', strain: strainOf(at) ?? 'not noted' };
-		}),
+		// (with a search, only those that fit it)
+		plays: rows === null ? 'the game database is not open' : rows.filter((r) => {
+			const info = infoOf(cat, num(r.beatmapId)), gains = parseGains(r.xpGains);
+			return is7kPlay(info, gains) && (!keep || keep(info, num(r.beatmapId), num(r.rate) || 1, gains, num(r.playedAt)));
+		}).slice(0, DEBUG_PLAYS).map((r) => debugPlayOf(cat, r)),
 	};
+};
+
+/** A play as the debug view shows it: every column the game keeps, its map, and its strain as the tracker noted it
+ *  (the bar after the play, 0-1, and the change per minute of the map). */
+const debugPlayOf = (cat: Catalog, r: Record<string, SqlValue>) => {
+	const at = num(r.playedAt);
+	return { ...r, playedAt: new Date(at).toISOString(), playedAtMs: at, map: infoOf(cat, num(r.beatmapId)) ?? 'not in the catalogue', strain: strainOf(at) ?? 'not noted' };
+};
+/** One play (by when it was played and its map) as the debug view shows it, read as the debug view reads them (the
+ *  newest 500, matched here rather than in the query, so the time compares as the lists read it); null when it isn't
+ *  found. */
+export const debugPlay = async (playedAt: number, beatmapId: number): Promise<Record<string, unknown> | null> => {
+	const id = playingAs || characterId;
+	if (!id) return null;
+	const rows = await rowsOf(
+		`SELECT s.*, x.gains AS xpGains FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
+		 WHERE s.characterId = ? ORDER BY s.playedAt DESC LIMIT ?`, [id, DEBUG_READ]);
+	const row = rows?.find((r) => num(r.playedAt) === playedAt && num(r.beatmapId) === beatmapId);
+	return row ? debugPlayOf(await mapCatalog([]), row) : null;
 };
 
 const strainStoreOf = (): StrainStore => {

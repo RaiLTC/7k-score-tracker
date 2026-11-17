@@ -150,10 +150,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .row.stale .skills { filter: grayscale(1) brightness(0.6); }
 /* an outdated map: why, at the end of its map cell (before Rate) */
 .map-out { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.map-out .out-note { display: inline-flex; flex: none; align-items: center; gap: 5px; margin-left: auto; padding: 1px 6px; color: var(--muted); background: var(--line); border-radius: 4px; font-size: 11px; }
-/* leveled up: a warning, not grayed out; the ! says a newer play will override it */
-.map-out .out-note.warn { color: #e8c147; background: color-mix(in srgb, #e8c147 12%, transparent); }
-.map-out .why { display: inline-grid; place-items: center; width: 12px; height: 12px; color: #1b1b24; background: #e8c147; border-radius: 3px; font-size: 9px; font-style: normal; font-weight: 700; cursor: help; }
+/* outdated: a square ! at the end of the map cell, the reason on hover; yellow for a level up, gray for a prestige */
+.map-out .why { display: inline-grid; flex: none; place-items: center; width: 14px; height: 14px; margin-left: auto; color: #1b1b24; background: #e8c147; border-radius: 3px; font-size: 10px; font-style: normal; font-weight: 700; cursor: help; }
+.map-out .why.gray { color: var(--bg); background: var(--muted); }
+/* advanced mode: its button while on, and a row copied with Shift + click */
+.btn[data-action='advanced'][aria-pressed='true'] { color: var(--text); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.row.copied { position: relative; }
+.row.copied::after { content: attr(data-copied); position: absolute; top: 50%; right: 14px; translate: 0 -50%; padding: 2px 8px; color: var(--accent-ink); background: var(--card); border: 1px solid var(--line-strong); border-radius: 4px; font-size: 11px; }
 .recent-for { display: inline-flex; align-items: center; gap: 8px; }
 .num-field { width: 64px; height: 32px; padding: 0 10px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
 .num-field:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -284,3 +287,92 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .trend { font-size: 11px; font-weight: 500; }
 .xp-up, .trend.up { color: #4ade80; }
 .xp-down, .trend.down { color: #f87171; }
+
+/* ===== ADHD Mode (ui/genz.ts): each animation only while the window has its class (a-buttons, a-switches, a-window,
+   a-pages, a-flash, a-bars, a-plays, a-rows: ADHD Mode on, and that animation on); transform and opacity only =====
+   Frequent actions get the least motion (100-150 ms), view changes a little more (200-250 ms), and a new play,
+   the moment the tracker is for, the most. Ease-out everywhere; nothing waits for an animation before it works. */
+.window { --ease-out: cubic-bezier(.2,.8,.2,1); --spring: cubic-bezier(.34,1.56,.64,1); }
+/* buttons: lift on hover, press in the moment the mouse goes down */
+.a-buttons :is(.btn, .seg button, .close, .icon-btn) { transition: background-color .12s, box-shadow .12s, transform .1s var(--ease-out); }
+.a-buttons :is(.btn, .icon-btn):hover { transform: translateY(-1px); }
+.a-buttons :is(.btn, .seg button, .close, .icon-btn):active { transform: scale(.95); transition-duration: .05s; }
+/* Advanced mode's Copied note pops */
+@keyframes note-pop { from { opacity: 0; scale: .8; } to { opacity: 1; scale: 1; } }
+.a-buttons .row.copied::after { animation: note-pop .15s var(--spring) both; }
+/* switches: the picked look slides to the picked option */
+.seg { position: relative; }
+.seg button { position: relative; z-index: 1; }
+.seg .pill { position: absolute; top: 2px; left: 0; height: calc(100% - 4px); border-radius: 6px; background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); pointer-events: none; opacity: 0; }
+.window[data-buttons='solid'] .seg .pill { background: var(--accent); box-shadow: none; }
+.window[data-buttons='outlined'] .seg .pill { background: none; }
+.a-switches .seg .pill { opacity: 1; transition: transform .22s var(--spring), width .22s var(--spring); }
+.a-switches .seg button:is([aria-selected='true'], [aria-checked='true']) { background: none !important; box-shadow: none !important; }
+/* the window pops open and fades out a little faster */
+@keyframes pop { from { opacity: 0; scale: .97; } to { opacity: 1; scale: 1; } }
+@keyframes fade-out { to { opacity: 0; scale: .98; } }
+.a-window.window.open { animation: pop .25s var(--spring) both; }
+.a-window.window.closing { animation: fade-out .15s ease-in both; }
+/* a page's cards and first rows rise in */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.a-pages .card.enter { animation: rise .2s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms); }
+.a-pages .enter-rows > :is(.row:not(.head-row), .skill-group) { animation: rise .22s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 20ms); }
+/* maps coming into view: each flashes for a moment in its dominant skill's colour, top to bottom (genz.ts times it) */
+.row { position: relative; }
+.row > .flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: linear-gradient(90deg, var(--c), transparent 70%); }
+@keyframes blink { 0% { opacity: 0; } 25% { opacity: .35; } 100% { opacity: 0; } }
+.a-flash .row.blink > .flash { animation: blink .35s ease-out both; }
+/* the Skills bars: a row waiting (genz.ts) hides them until it's in view, then they grow, row by row, each row's bars
+   left to right */
+@keyframes grow-up { from { transform: scaleY(0); } }
+.skills i { transform-origin: bottom; }
+.a-bars .row.wait .skills i { transform: scaleY(0); }
+.a-bars .row.growing .skills i { animation: grow-up .3s var(--ease-out) both; animation-delay: calc(var(--b, 0) * 20ms); }
+.skills i:nth-child(2) { --b: 1; } .skills i:nth-child(3) { --b: 2; } .skills i:nth-child(4) { --b: 3; } .skills i:nth-child(5) { --b: 4; }
+.skills i:nth-child(6) { --b: 5; } .skills i:nth-child(7) { --b: 6; } .skills i:nth-child(8) { --b: 7; } .skills i:nth-child(9) { --b: 8; } .skills i:nth-child(10) { --b: 9; }
+/* an opened row or folder: its contents rise in, its bars fill */
+.a-rows :is(.detail.enter, .skill-group.enter > :not(summary)) { animation: rise .15s var(--ease-out) both; }
+@keyframes fill { from { transform: scaleX(0); } }
+.a-rows .detail.enter .share i { animation: fill .3s var(--ease-out) both; }
+/* ---- a new play: the big moment ---- */
+/* it slides in at the top of Recent */
+@keyframes arrive { from { opacity: 0; transform: translateY(-10px) scale(.98); } to { opacity: 1; transform: none; } }
+.a-plays .row.arrive { animation: arrive .3s var(--spring) both; }
+/* the row flashes in its top skill's colour */
+@keyframes flash { from { opacity: .3; } to { opacity: 0; } }
+.a-plays .row.gain > .flash { animation: flash .9s ease-out; }
+/* changed numbers count up and pop */
+@keyframes bump { 0% { transform: scale(1); } 40% { transform: scale(1.2); } 100% { transform: scale(1); } }
+.a-plays .row.gain .bump { display: inline-block; animation: bump .3s var(--spring); }
+/* the XP it gave floats up from it (the row lets it out while it does: rows normally clip what they draw) */
+.a-plays .row.gain { content-visibility: visible; z-index: 1; }
+@keyframes float-up { 0% { opacity: 0; transform: translateY(4px) scale(.9); } 15% { opacity: 1; transform: translateY(0) scale(1.05); } 100% { opacity: 0; transform: translateY(-26px) scale(1); } }
+.row > .float { position: absolute; top: 4px; pointer-events: none; color: var(--c); font-size: 13px; font-weight: 700; text-shadow: 0 0 12px var(--c); white-space: nowrap; animation: float-up 1.1s var(--ease-out) both; }
+/* a map that took first place in Effective Maps: a shine runs across it once */
+.row > .shine { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.row > .shine::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / 14%), transparent); animation: sweep .8s .15s var(--ease-out) both; }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(400%); } }
+/* the accuracy surprise: the map's row flashes in rainbow colours, a message pops up above it, and confetti bursts
+   up from it, then falls (genz.ts places each piece) */
+.row > .party { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: linear-gradient(90deg, #ef4444, #f97316, #eab308, #84cc16, #06b6d4, #3b82f6, #d946ef, #ef4444) 0 0 / 200% 100%; animation: party-flash 2.5s ease-out both, party-slide 2.5s linear both; }
+@keyframes party-flash { 0% { opacity: 0; } 8% { opacity: .4; } 20% { opacity: .12; } 32% { opacity: .4; } 44% { opacity: .12; } 56% { opacity: .35; } 100% { opacity: 0; } }
+@keyframes party-slide { to { background-position: 200% 0; } }
+.party-note { position: absolute; left: 50%; z-index: 6; padding: 8px 14px; color: #fff; background: var(--card); border-radius: 8px; box-shadow: 0 0 0 1px #eab308, 0 0 18px rgb(234 179 8 / 35%), 0 12px 32px rgb(0 0 0 / 50%); font-size: 13px; font-weight: 600; white-space: nowrap; pointer-events: none; translate: -50% 0; animation: party-note 4s var(--spring) both; }
+@keyframes party-note { 0% { opacity: 0; transform: translateY(8px) scale(.9); } 8% { opacity: 1; transform: none; } 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; border-radius: inherit; }
+.confetti i { position: absolute; animation: confetti var(--d, 3s) both; }
+/* each piece bursts up fast, then drifts down slowly, swaying side to side and flipping like paper */
+.confetti b { display: block; width: 7px; height: 4px; border-radius: 1px; animation: sway var(--s, 1s) ease-in-out infinite alternate, flip var(--f, .6s) ease-in-out infinite alternate; }
+@keyframes confetti {
+	0% { opacity: 1; transform: translate(0, 0); animation-timing-function: cubic-bezier(.15,.7,.3,1); }
+	14% { opacity: 1; transform: translate(var(--dx), var(--dy)); animation-timing-function: cubic-bezier(.4,0,.8,.6); }
+	85% { opacity: 1; }
+	100% { opacity: 0; transform: translate(calc(var(--dx) * 1.2), var(--fall)); }
+}
+@keyframes sway { from { transform: translateX(calc(var(--sw) * -1)) rotate(-30deg); } to { transform: translateX(var(--sw)) rotate(30deg); } }
+@keyframes flip { from { scale: 1 1; } to { scale: 1 .15; } }
+@media (prefers-reduced-motion: reduce) { .juice *, .juice *::before, .juice *::after, .juice.window { animation: none !important; transition: none !important; } }
+.num-field.wide { width: 80px; }
+.volume { display: flex; align-items: center; gap: 10px; }
+.volume input { width: 140px; accent-color: var(--accent); }
+.volume .num { width: 34px; color: var(--muted); text-align: right; }

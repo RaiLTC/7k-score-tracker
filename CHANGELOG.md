@@ -2,6 +2,19 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.7] - 2026-11-17
+
+### Added
+
+- Added ADHD Mode
+- Add a search bar to Debug
+- Add Advanced mode to Debug: Shift + click a play to copy it
+- Add time tags to the search in Advanced mode: day, ts and te
+
+### Changed
+
+- Show outdated maps with a ! instead of a label, with the reason on hover
+
 ## [1.1.6] - 2026-11-17
 
 ### Fixed

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agoText, bestBySkill, bestMaps, is7kPlay, parseGains, totalOf, xpText } from '../src/rules/logic.js';
+import { agoText, bestBySkill, bestMaps, dayOf, is7kPlay, parseGains, parseSearch, playedIn, searching, timeOf, totalOf, xpText } from '../src/rules/logic.js';
 import { arrowsOf, restedStrain, strainPerMinute, strainWhenSet } from '../src/rules/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
@@ -146,4 +146,43 @@ test("Skills: a map's rates are one entry, led by its best recent rate, or the o
 	assert.equal(bestBySkill(bestMaps([at(1, 100, 900), at(1.1, 200, 500)]), 5, 50)[0].maps[0].map.rate, 1);
 	// only 1.1 recent: it leads
 	assert.equal(bestBySkill(bestMaps([at(1, 100, 900), at(1.1, 200, 500)]), 5, 150)[0].maps[0].map.rate, 1.1);
+});
+
+test('time tags: ts and te read 5am, 0500, 05:00 and 7pm; day reads today, yesterday and dates', () => {
+	assert.equal(timeOf('5am'), 300);
+	assert.equal(timeOf('0500'), 300);
+	assert.equal(timeOf('05:00'), 300);
+	assert.equal(timeOf('7pm'), 1140);
+	assert.equal(timeOf('12am'), 0);
+	assert.equal(timeOf('5:30pm'), 1050);
+	assert.equal(timeOf('25'), null);
+	assert.equal(timeOf('13pm'), null);
+	const now = new Date(2026, 10, 17, 12).getTime();
+	assert.equal(dayOf('today', now), new Date(2026, 10, 17).getTime());
+	assert.equal(dayOf('yesterday', now), new Date(2026, 10, 16).getTime());
+	assert.equal(dayOf('15nov', now), new Date(2026, 10, 15).getTime());
+	assert.equal(dayOf('nov15', now), new Date(2026, 10, 15).getTime());
+	assert.equal(dayOf('2026-11-15', now), new Date(2026, 10, 15).getTime());
+	assert.equal(dayOf('20dec', now), new Date(2025, 11, 20).getTime()); // later than today: last year
+	assert.equal(dayOf('31feb', now), null);
+});
+
+test('time tags: plays between ts and te, on a day or on any day, past midnight when te is earlier', () => {
+	const now = new Date(2026, 10, 17, 23).getTime(), at = (d, h, m = 0) => new Date(2026, 10, d, h, m).getTime();
+	const q = parseSearch('day=today ts=5am te=7pm', now);
+	assert.equal(searching(q), true);
+	assert.equal(playedIn(q, at(17, 5)), true);
+	assert.equal(playedIn(q, at(17, 18, 59)), true);
+	assert.equal(playedIn(q, at(17, 19)), false);
+	assert.equal(playedIn(q, at(16, 12)), false);
+	const night = parseSearch('day=16nov ts=22:00 te=0200', now);
+	assert.equal(playedIn(night, at(16, 23)), true);
+	assert.equal(playedIn(night, at(17, 1)), true);
+	assert.equal(playedIn(night, at(17, 3)), false);
+	const any = parseSearch('ts=5am te=7am', now);
+	assert.equal(playedIn(any, at(3, 6)), true);
+	assert.equal(playedIn(any, at(3, 8)), false);
+	assert.equal(playedIn(parseSearch('day=yesterday', now), at(16, 0)), true);
+	// a tag that can't be read is a word
+	assert.deepEqual(parseSearch('ts=soon', now).words, ['ts=soon']);
 });

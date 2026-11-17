@@ -3,10 +3,12 @@
 // window is closed, and while it's open, only clicks and keys do anything.
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
-import { TrackerError, debugData, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
+import { createGenZ } from './ui/genz.js';
+import { noteSurprise, surprised } from './game/surprise.js';
+import { TrackerError, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
-import { type MapStats, type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, searching, topSkills } from './rules/logic.js';
-import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, strainMs, recentMs, settingsStore, wholeOf } from './settings.js';
+import { type MapStats, type Play, type Search, bestMaps, fitsSearch, mainSkill, num, parseSearch, playedIn, searching, topSkills } from './rules/logic.js';
+import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, strainMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import { MINDBLOCK_FREE, type PeakMap, peakMinutes, planToPeak, strainBar } from './rules/peak.js';
 import { arrowsOf } from './rules/strain.js';
 import styles from './ui/styles.css';
@@ -113,6 +115,7 @@ export class Tracker extends Addon {
 						<div class="search-pop" role="dialog" aria-label="${TEXT.searchOps}" hidden><div class="search-pop-head"><span class="title">${TEXT.searchOpsTitle}</span><button type="button" class="close" data-action="search-help" aria-label="${TEXT.close}" title="${TEXT.close}">✕</button></div>
 							<div class="muted">${TEXT.searchOpsNote}</div>
 							<div class="ops">${TEXT.searchOpsList.map(([op, what, ex]) => `<code>${op}</code><span>${what}</span><code class="ex">${ex}</code>`).join('')}</div>
+							<div class="ops" data-advanced-only hidden>${TEXT.searchOpsAdvanced.map(([op, what, ex]) => `<code>${op}</code><span>${what}</span><code class="ex">${ex}</code>`).join('')}</div>
 							<div class="ops-label muted">${TEXT.searchOpsCompare}</div>
 							<div class="ops">${TEXT.searchCompareList.map(([op, what, ex]) => `<code>${op}</code><span>${what}</span><code class="ex">${ex}</code>`).join('')}</div></div></div>
 				<div class="panels">
@@ -124,13 +127,22 @@ export class Tracker extends Addon {
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
 						<div class="suggest-body" data-suggest>${messageHtml(TEXT.suggestFirst)}</div></section>
-					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
+					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="advanced" aria-pressed="false" title="${TEXT.advancedHelp}">${TEXT.advanced}</button><button type="button" class="btn small" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
 					<section class="card changelog" hidden><div class="card-head"><span class="title">${TEXT.changelog}</span><span class="muted">${TEXT.changelogNote}</span></div><div class="changelog-body" data-changelog></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
 						<section class="settings-box"><div class="settings-group">${TEXT.groups.general}</div>
 						${settingRow(TEXT.keybind, TEXT.keybindHelp, `<button type="button" class="keybind" data-action="record"></button><button type="button" class="btn" data-action="reset-key">${TEXT.reset}</button>`, ' data-key-help')}
 						${settingRow(TEXT.buttonStyle, TEXT.buttonStyleHelp, choice('buttons', TEXT.buttonStyle, TEXT.buttonStyles))}
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
+						${settingRow(TEXT.genz, TEXT.genzHelp, choice('genz', TEXT.genz, TEXT.oldOptions))}
+						</section>
+						<section class="settings-box" data-genz-settings hidden><div class="settings-group">${TEXT.groups.genz} · ${TEXT.animations}</div>
+						${TEXT.anims.map(([key, name, help]) => settingRow(name, help, choice(key as keyof Settings, name, TEXT.oldOptions))).join('')}
+						${settingRow(TEXT.surpriseOpen, TEXT.surpriseOpenHelp, choice('surpriseOpen', TEXT.surpriseOpen, TEXT.oldOptions))}
+						${settingRow(TEXT.surpriseXp, TEXT.surpriseXpHelp, `<input type="text" class="num-field wide" inputmode="numeric" maxlength="5" autocomplete="off" spellcheck="false" aria-label="${TEXT.surpriseXp}" data-number="surpriseXp">`)}
+						<div class="settings-group">${TEXT.soundsTitle}</div>
+						${settingRow(TEXT.volume, TEXT.volumeHelp, `<span class="volume"><input type="range" min="0" max="100" step="5" aria-label="${TEXT.volume}" data-volume><span class="num" data-volume-value></span></span>`)}
+						${TEXT.sounds.map(([key, name, help]) => settingRow(name, help, choice(key as keyof Settings, name, TEXT.oldOptions))).join('')}
 						</section>
 						<section class="settings-box"><div class="settings-group">${TEXT.groups.columns}</div>
 						${settingRow(TEXT.skillsAs, TEXT.skillsAsHelp, choice('skillsAs', TEXT.skillsAs, TEXT.skillsAsOptions))}
@@ -172,7 +184,16 @@ export class Tracker extends Addon {
 		const keyButton = $('[data-action="record"]'), keyHelp = $('[data-key-help]'), gear = $('[data-action="settings"]'), bug = $('[data-action="debug"]'), news = $('[data-action="changelog"]');
 		const customColor = $<HTMLInputElement>('[data-custom-color]');
 		const numbers = [...root.querySelectorAll<HTMLInputElement>('[data-number]')];
+		const volume = $<HTMLInputElement>('[data-volume]');
+		const genz = createGenZ(root, win, () => {
+			const s = this.settings, on = (v: string) => v === 'on';
+			return { on: on(s.genz), volume: s.volume, sounds: { click: on(s.soundClick), tab: on(s.soundTab), open: on(s.soundOpen), play: on(s.soundPlay), best: on(s.soundBest), ticks: on(s.soundTicks), flash: on(s.soundFlash), copy: on(s.soundCopy), surprise: on(s.soundSurprise), horn: on(s.soundHorn) },
+				anims: { buttons: on(s.animButtons), switches: on(s.animSwitches), window: on(s.animWindow), pages: on(s.animPages), flash: on(s.animFlash), bars: on(s.animBars), plays: on(s.animPlays), rows: on(s.animRows), confetti: on(s.animConfetti) } };
+		});
+		this.own(() => genz.dispose());
 
+		/** Whether ADHD Mode was on when Settings was last opened. */
+		let genzSettingsShown = this.settings.genz === 'on';
 		// the settings that change how the window looks, applied all at once
 		const applyLook = () => {
 			const s = this.settings, accent = accentOf(s);
@@ -185,18 +206,43 @@ export class Tracker extends Addon {
 			// shown (true), its main-skill maps hidden (mixed), every map it's a top skill of hidden (false)
 			for (const b of root.querySelectorAll<HTMLElement>('[data-skill]')) b.setAttribute('aria-pressed', s.removed.includes(b.dataset.skill!) ? 'false' : s.hidden.includes(b.dataset.skill!) ? 'mixed' : 'true');
 			$('.swatches .custom').style.background = s.accent === 'custom' ? s.customAccent : '';
+			$('[data-action="advanced"]').setAttribute('aria-pressed', String(s.advanced === 'on'));
 			customColor.value = s.customAccent;
 			for (const input of numbers) input.value = String(s[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
 			$('[data-best-note]').textContent = $('[data-recent-note]').textContent = TEXT.bestNote[s.unit] ?? '';
 			$('[data-recent-title]').textContent = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			// ADHD Mode's own settings only while it's on, and only from the next time Settings is opened after turning
+			// it on; the time tags only in Advanced mode
+			$('[data-genz-settings]').hidden = s.genz !== 'on' || !genzSettingsShown;
+			volume.value = String(s.volume);
+			$('[data-volume-value]').textContent = `${s.volume}%`;
+			for (const el of root.querySelectorAll<HTMLElement>('[data-advanced-only]')) el.hidden = s.advanced !== 'on';
+			genz.apply();
 		};
 
 		let plays: Play[] | null = null;
+		/** ADHD Mode's accuracy surprise: once per map, ever, for a play since the last look (or since the game started)
+		 *  that gave the map more accuracy XP than the setting, and only if it's news: a map that already gave that
+		 *  before (any older play read) is known, and never surprises. Moves the last look on. */
+		let surpriseSince = Date.now();
+		const surpriseIn = (list: Play[]) => {
+			const s = this.settings, wanted = s.genz === 'on' && (s.animConfetti === 'on' || s.soundSurprise === 'on' || s.soundHorn === 'on');
+			const gives = (p: Play) => num(p.gains.accuracy) > s.surpriseXp;
+			// the oldest such play of each map: a map whose first one is from before the last look is known already
+			const first = new Map<number, number>();
+			for (const p of list) if (gives(p)) first.set(p.beatmapId, Math.min(first.get(p.beatmapId) ?? Infinity, p.playedAt));
+			for (const [map, at] of first) if (at <= surpriseSince && !surprised().has(map)) noteSurprise(map);
+			const found = wanted ? list.find((p) => p.playedAt > surpriseSince && gives(p) && first.get(p.beatmapId) === p.playedAt && !surprised().has(p.beatmapId)) : undefined;
+			surpriseSince = Math.max(surpriseSince, ...list.map((p) => p.playedAt));
+			return found;
+		};
+		/** While the lists are drawn after new plays were read. */
+		let newPlays = false;
 		/** A map whose recent plays alone are shown in Recent plays, or 0 for all. */
 		let only = 0;
 		/** What's typed in the search box; every list shows only what fits it. */
 		let query: Search = parseSearch('');
-		const keepPlay = () => (searching(query) ? (p: Play) => fitsSearch(query, p.info, p.beatmapId, p.rate, p.gains) : undefined);
+		const keepPlay = () => (searching(query) ? (p: Play) => playedIn(query, p.playedAt) && fitsSearch(query, p.info, p.beatmapId, p.rate, p.gains) : undefined);
 		const keepMaps = <T extends { info: Play['info'], beatmapId: number, rate: number, gains: Play['gains'] }>(maps: T[]) =>
 			(searching(query) ? maps.filter((m) => fitsSearch(query, m.info, m.beatmapId, m.rate, m.gains)) : maps);
 		/** Most effective maps and the recent list leave out maps whose main skill is hidden in the Skills box, and maps
@@ -224,6 +270,8 @@ export class Tracker extends Addon {
 			const keyOf = (el: HTMLElement) => `${el.closest<HTMLElement>('[data-list]')?.dataset.list}:${el.dataset.key}`;
 			const open = new Set(lists.flatMap((l) => [...l.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')]).map(keyOf));
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			// Effective Maps, the recent list and Skills use only the plays inside the searched time (day, ts, te)
+			const timed = query.time ? plays.filter((p) => playedIn(query, p.playedAt)) : plays;
 			const outdateBy = { level: s.outdateLevel === 'on', prestige: s.outdatePrestige === 'on' };
 			showStrainAs(s.strainAs);
 			if (page === 'plays') {
@@ -235,7 +283,7 @@ export class Tracker extends Addon {
 				$('[data-filter]').hidden = !only;
 			} else if (page === 'best') {
 				// with old plays left out, only the newer ones count (a map played only before then drops out)
-				const kept = s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays;
+				const kept = s.oldOn === 'on' ? timed.filter((p) => p.playedAt >= now - oldMs(s)) : timed;
 				const none = searching(query) ? TEXT.noMatch : undefined;
 				// a map's latest play against its top skills (15% of its XP or more): a prestige outdates it (ranked after
 				// the others), a level up warns
@@ -247,13 +295,14 @@ export class Tracker extends Addon {
 				const best = [...ranked.filter((m) => out(m) !== 'prestige'), ...ranked.filter((m) => out(m) === 'prestige')].slice(0, s.bestCount);
 				bestList.innerHTML = bestHtml(best, s.unit, s.skillsAs, since, TEXT.stale(title), none, true, undefined, false, undefined, out);
 				// the recent list counts only the plays inside the time, coloured as Effective Maps colours them
-				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best.filter((m) => out(m) !== 'prestige'), since));
+				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(timed.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best.filter((m) => out(m) !== 'prestige'), since));
 			} else {
-				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays, s.avgOf)), s.unit, since, TEXT.stale(title),
+				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? timed.filter((p) => p.playedAt >= now - oldMs(s)) : timed, s.avgOf)), s.unit, since, TEXT.stale(title),
 					// a skill with no maps left after old plays are left out shows grayed out (not while searching)
 					s.oldOn === 'on' && !searching(query) ? TEXT.noSkillPlays(TEXT.recentTitle(s.oldFor, s.oldUnit)) : '',
 					(m, skill) => outdatedFor(levelHistory(), skill, m.lastAt, outdateBy));
 			}
+			for (const list of lists) genz.drawn(list, newPlays);
 			this.drawnAt = now;
 			if (!open.size) return;
 			for (const list of lists) {
@@ -315,9 +364,9 @@ export class Tracker extends Addon {
 				}
 				suggested = { peak: { maps, v, note } };
 			}
-			drawSuggest();
+			drawSuggest(true);
 		};
-		const drawSuggest = () => {
+		const drawSuggest = (fresh = false) => {
 			if (!suggested) return;
 			const s = this.settings;
 			$('[data-suggest]').innerHTML = (['warm', 'cool', 'peak'] as const).filter((g) => suggested![g]).map((g) => {
@@ -326,6 +375,9 @@ export class Tracker extends Addon {
 					${note ? `<div class="suggest-note">${esc(note)}</div>` : ''}
 					${maps.length || !note ? `<div class="list best" data-list="suggest-${g}">${bestHtml(maps, s.unit, s.skillsAs, 0, '', TEXT.noSuggest(TEXT.recentTitle(s.strainFor, s.strainUnit)), true, (m) => v.get(m), true)}</div>` : ''}</section>`;
 			}).join('');
+			// ADHD Mode: a new pick flashes and grows again
+			const lists = [...root.querySelectorAll<HTMLElement>('[data-suggest] [data-list]')];
+			for (const list of lists) genz.added(list, fresh);
 		};
 
 		// the recent list into the game playlist; the button says how it went for a moment
@@ -359,6 +411,7 @@ export class Tracker extends Addon {
 			showStrainAs(s.strainAs);
 			playsList.insertAdjacentHTML('beforeend', playsHtml(plays, Date.now(), s.unit, s.skillsAs, since, TEXT.stale(title), only, '', playsShown, PLAYS_BATCH, keepPlay()));
 			playsShown += PLAYS_BATCH;
+			genz.added(playsList);
 		});
 
 		const stopRecording = () => {
@@ -369,6 +422,9 @@ export class Tracker extends Addon {
 		};
 
 		let page: Page = this.settings.view;
+		/** A page's lists, top to bottom. */
+		const listsOf = (p: Page) => (p === 'plays' ? [playsList] : p === 'best' ? [recentList, bestList] : p === 'skills' ? [skillsList]
+			: p === 'suggest' ? [...root.querySelectorAll<HTMLElement>('[data-suggest] [data-list]')] : []);
 		const showPage = (next: Page) => {
 			page = next;
 			for (const b of root.querySelectorAll<HTMLElement>('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === next));
@@ -381,7 +437,7 @@ export class Tracker extends Addon {
 			$('.debug').hidden = next !== 'debug';
 			$('.changelog').hidden = next !== 'changelog';
 			$('[data-unit-switch]').hidden = TOOL_PAGES.includes(next);
-			$('.search').hidden = next === 'debug' || next === 'changelog';
+			$('.search').hidden = next === 'changelog';
 			gear.setAttribute('aria-pressed', String(next === 'settings'));
 			bug.setAttribute('aria-pressed', String(next === 'debug'));
 			news.setAttribute('aria-pressed', String(next === 'changelog'));
@@ -390,8 +446,10 @@ export class Tracker extends Addon {
 			const log = $('[data-changelog]');
 			if (next === 'changelog' && !log.childElementCount) log.innerHTML = changelogHtml(CHANGELOG);
 			if (!TOOL_PAGES.includes(next) && next !== this.settings.view) this.save({ view: next as View });
+			if (next === 'settings') { genzSettingsShown = this.settings.genz === 'on'; applyLook(); }
 			stopRecording();
 			drawPage();
+			genz.viewShown(listsOf(next));
 		};
 
 		// the debug view: a closed box per part; what was open stays open when it's drawn again
@@ -405,7 +463,9 @@ export class Tracker extends Addon {
 			// what's ticked stays ticked when it's drawn again
 			const ticked = new Set([...body.querySelectorAll<HTMLInputElement>('[data-pick]:checked')].map((c) => c.dataset.pick));
 			let data: Record<string, unknown>;
-			try { data = await debugData(); } catch (e) { data = { error: String(e) }; }
+			// the plays list shows only what fits the search
+			const keep = searching(query) ? (info: Play['info'], beatmapId: number, rate: number, gains: Play['gains'], at: number) => playedIn(query, at) && fitsSearch(query, info, beatmapId, rate, gains) : undefined;
+			try { data = await debugData(keep); } catch (e) { data = { error: String(e) }; }
 			const { plays: list, character, ...rest } = data;
 			const parts: [string, unknown][] = [...Object.entries(rest), ['plays', list], ['settings', this.settings],
 				['addon', { version: this.meta.version, character, userAgent: navigator.userAgent, now: new Date().toISOString() }]];
@@ -485,7 +545,16 @@ export class Tracker extends Addon {
 				const result = await recent7k(api);
 				if (ticket !== this.loading) return;
 				plays = result;
-				renderLists();
+				// compared with what the lists showed: new plays flash (ADHD Mode)
+				newPlays = true;
+				try { renderLists(); } finally { newPlays = false; }
+				// ADHD Mode's accuracy surprise: on a page that can show the map (Recent plays, from the top, when it's on
+				// another)
+				const found = surpriseIn(result);
+				if (found) {
+					if (page !== 'plays' && page !== 'best') { showPage('plays'); playsList.scrollTop = 0; }
+					if (genz.surprise(found.beatmapId, TEXT.accuracyFound)) noteSurprise(found.beatmapId);
+				}
 				if (page === 'debug') void drawDebug();
 			} catch (e) {
 				if (ticket !== this.loading) return;
@@ -517,8 +586,22 @@ export class Tracker extends Addon {
 			tick();
 		};
 
+		let wantOpen = false;
+		const surpriseWhileClosed = async () => {
+			const result = await recent7k(gameApi()).catch(() => null);
+			if (!result || !win.hidden) return;
+			const due = surpriseIn(result);
+			if (!due) return;
+			// shown by load() as the window opens: the last look goes back to just before the play
+			surpriseSince = due.playedAt - 1;
+			showPage('plays');
+			playsList.scrollTop = 0;
+			setOpen(true);
+		};
 		const setOpen = (open: boolean) => {
-			win.hidden = !open;
+			wantOpen = open;
+			// closing: hidden after ADHD Mode's short fade (at once without it)
+			if (open) { win.hidden = false; genz.opened(); genz.viewShown(listsOf(page)); } else genz.closing(() => { if (!wantOpen) win.hidden = true; });
 			guard(open);
 			// Esc is taken only while the window is open: closed, it's the game's. While recording, it cancels.
 			this.escape?.();
@@ -533,6 +616,8 @@ export class Tracker extends Addon {
 				if (!win.hidden) return void load();
 				this.mark = m;
 				void noteStrain(gameApi()).catch((e: unknown) => this.log.error('noting the strain failed', e));
+				// closed: a play due the accuracy surprise opens the tracker on Recent plays to show it
+				if (this.settings.genz === 'on' && this.settings.surpriseOpen === 'on') void surpriseWhileClosed();
 			// no new play: once a minute, draw again so times, the recent list and gray maps keep up
 			} else if (!win.hidden && Date.now() - this.drawnAt >= 60e3) renderLists();
 		}, () => undefined), POLL_MS);
@@ -569,9 +654,10 @@ export class Tracker extends Addon {
 		this.on(searchBox, 'input', () => {
 			window.clearTimeout(searchTimer);
 			searchTimer = window.setTimeout(() => {
-				query = parseSearch(searchBox.value);
+				query = parseSearch(searchBox.value, Date.now(), this.settings.advanced === 'on');
 				playsShown = PLAYS_BATCH;
 				renderLists();
+				if (page === 'debug') void drawDebug();
 			}, 150);
 		});
 		this.on(searchBox, 'keydown', (event) => {
@@ -596,11 +682,17 @@ export class Tracker extends Addon {
 				deleteKeys(input, event as KeyboardEvent);
 			});
 			this.on(input, 'change', () => {
-				const n = wholeOf(input.value, NUMBER_MIN[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
+				const n = wholeOf(input.value, NUMBER_MIN[input.dataset.number as typeof NUMBER_SETTINGS[number]], NUMBER_MAX[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
 				if (n !== null) { this.save({ [input.dataset.number!]: n }); renderLists(); if (input.dataset.number === 'strainFor' && suggested) void pickSuggest(); }
 				applyLook();
 			});
 		}
+		// ADHD Mode's volume: saved as it moves, with a tick to hear it
+		this.on(volume, 'input', () => {
+			this.save({ volume: Number(volume.value) });
+			$('[data-volume-value]').textContent = `${this.settings.volume}%`;
+			genz.sample();
+		});
 		this.on(customColor, 'change', () => this.save({ accent: 'custom', customAccent: customColor.value }));
 
 		applyLook();
@@ -667,6 +759,7 @@ export class Tracker extends Addon {
 				this.save({ [set]: value } as Partial<Settings>);
 				applyLook();
 				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide';
+				if (set === 'genz' && value === 'on') genz.viewShown(listsOf(page));
 				if (['unit', 'skillsAs', 'strainAs', 'recentUnit', 'oldOn', 'oldUnit', 'outdateLevel', 'outdatePrestige'].includes(set)) renderLists();
 				// Strain: picked again from the other plays, if it was picked
 				if ((set === 'strainMode' || set === 'strainUnit') && suggested) void pickSuggest();
@@ -688,6 +781,13 @@ export class Tracker extends Addon {
 				case 'debug': showPage(page === 'debug' ? this.settings.view : 'debug'); break;
 				case 'changelog': showPage(page === 'changelog' ? this.settings.view : 'changelog'); break;
 				case 'copy': e.preventDefault(); copyDebug(target); break;
+				case 'advanced':
+					this.save({ advanced: this.settings.advanced === 'on' ? 'off' : 'on' });
+					applyLook();
+					// the time tags work only in Advanced mode
+					query = parseSearch(searchBox.value, Date.now(), this.settings.advanced === 'on');
+					renderLists();
+					break;
 				case 'record':
 					this.recording = true;
 					keyButton.classList.add('recording');
@@ -696,9 +796,29 @@ export class Tracker extends Addon {
 				case 'reset-key': this.save({ hotkey: DEFAULTS.hotkey }); stopRecording(); bindToggle(); break;
 			}
 		});
+		// advanced mode: Shift + click on a play (a map: its latest play) copies it as the debug view shows it
+		const advancedClick = (e: Event) => e instanceof MouseEvent && e.shiftKey && this.settings.advanced === 'on';
+		// the row says Copied, or why it couldn't
+		const copyPlay = async (row: HTMLElement) => {
+			const [at, beatmapId] = row.dataset.play!.split(':').map(Number);
+			let note: string = TEXT.copied;
+			try {
+				const play = await debugPlay(at!, beatmapId!);
+				if (!play) note = TEXT.playNotFound;
+				else await navigator.clipboard.writeText(JSON.stringify(play, null, 2));
+			} catch { note = TEXT.copyFailed; }
+			row.dataset.copied = note;
+			if (note === TEXT.copied) genz.copied();
+			row.classList.add('copied');
+			window.setTimeout(() => row.classList.remove('copied'), 2000);
+		};
 		const toggleRow = (e: Event) => {
 			const row = (e.target as Element).closest<HTMLElement>('.row[role="button"]');
 			if (!row) return;
+			if (advancedClick(e)) {
+				if (row.dataset.play) void copyPlay(row);
+				return;
+			}
 			if (e instanceof KeyboardEvent) {
 				if (e.key !== 'Enter' && e.key !== ' ') return;
 				e.preventDefault();
@@ -707,9 +827,12 @@ export class Tracker extends Addon {
 			if (!detail?.classList.contains('detail')) return;
 			detail.hidden = !detail.hidden;
 			row.setAttribute('aria-expanded', String(!detail.hidden));
+			if (!detail.hidden) genz.rowOpened(detail);
 		};
 		for (const list of [playsList, bestList, recentList, skillsList, $('[data-suggest]')]) {
 			this.on(list, 'click', toggleRow);
+			// Shift + click would select text
+			this.on(list, 'mousedown', (e) => { if (advancedClick(e)) e.preventDefault(); });
 			this.on(list, 'keydown', toggleRow);
 		}
 	}

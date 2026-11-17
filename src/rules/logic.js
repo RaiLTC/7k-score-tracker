@@ -129,7 +129,8 @@ export const bestBySkill = (maps, count = 5, since = 0, out = () => '') => SKILL
 // ---- search ----
 
 /** @typedef {{ key: 'length' | 'skill' | 'stars', op: string, value: number | string }} SearchTag */
-/** @typedef {{ words: string[], tags: SearchTag[] }} Search */
+/** When a play was: `day`, the start of that day (ms); `ts` and `te`, minutes into the day. @typedef {{ day?: number, ts?: number, te?: number }} SearchTime */
+/** @typedef {{ words: string[], tags: SearchTag[], time: SearchTime | null }} Search */
 
 const TAG_KEYS = /** @type {Record<string, 'length' | 'skill' | 'stars'>} */ ({
 	length: 'length', len: 'length', ln: 'length', skill: 'skill', skills: 'skill', sk: 'skill',
@@ -143,19 +144,64 @@ export const lengthOf = (v) => {
 	return num(m[1]) * 60 + num(m[2]);
 };
 
+const TIME_KEYS = /** @type {Record<string, 'day' | 'ts' | 'te'>} */ ({ day: 'day', date: 'day', ts: 'ts', 'time-start': 'ts', te: 'te', 'time-end': 'te' });
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/** A time of day as minutes: "5am", "5:30pm", "0500", "05:00", "17" → 300, 1050, 300, 300, 1020; null when it isn't one.
+ *  @param {string} v */
+export const timeOf = (v) => {
+	const m = /^(\d{1,4})(?::(\d{2}))?(am|pm)?$/.exec(v.trim().toLowerCase());
+	const digits = m?.[1] ?? '';
+	if (!m || (m[2] !== undefined && digits.length > 2)) return null;
+	let h = m[2] !== undefined || digits.length <= 2 ? Number(digits) : Number(digits.slice(0, -2));
+	const min = m[2] !== undefined ? Number(m[2]) : digits.length <= 2 ? 0 : Number(digits.slice(-2));
+	if (m[3]) {
+		if (h < 1 || h > 12) return null;
+		h = (h % 12) + (m[3] === 'pm' ? 12 : 0);
+	}
+	if (min > 59 || h * 60 + min > 24 * 60) return null;
+	return h * 60 + min;
+};
+
+/** The start of a day (this computer's time): "today", "yesterday", "15nov", "nov15" or "2026-11-15"; a day and month
+ *  later than today is last year's. Null when it isn't a day. @param {string} v @param {number} now */
+export const dayOf = (v, now) => {
+	const t = v.trim().toLowerCase(), today = new Date(now);
+	today.setHours(0, 0, 0, 0);
+	if (t === 'today') return today.getTime();
+	if (t === 'yesterday') { today.setDate(today.getDate() - 1); return today.getTime(); }
+	const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+	const dm = /^(\d{1,2})([a-z]{3,})$/.exec(t), md = /^([a-z]{3,})(\d{1,2})$/.exec(t);
+	const [y, mo, d] = iso ? [Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])]
+		: dm ? [undefined, MONTHS.indexOf((dm[2] ?? '').slice(0, 3)), Number(dm[1])]
+			: md ? [undefined, MONTHS.indexOf((md[1] ?? '').slice(0, 3)), Number(md[2])] : [undefined, -1, 0];
+	if (mo < 0 || mo > 11 || d < 1 || d > 31) return null;
+	const day = new Date(y ?? today.getFullYear(), mo, d);
+	if (day.getMonth() !== mo) return null;
+	if (y === undefined && day > today) day.setFullYear(day.getFullYear() - 1);
+	return day.getTime();
+};
+
 /**
  * What's typed in the search box: plain words (each must be in the map's title or difficulty) and tags,
- * like length>1m30, length<=90, skill:stamina, skill!=accuracy, stars>=5 or star-rating=4.5 (!= means not). A tag
- * that can't be read is a word.
+ * like length>1m30, length<=90, skill:stamina, skill!=accuracy, stars>=5 or star-rating=4.5 (!= means not), and
+ * when it was played: day=today, ts=5am, te=7pm. A tag that can't be read is a word.
  * @param {string} text
+ * @param {number} [now]
+ * @param {boolean} [timeTags] whether day, ts and te are read (Advanced mode); without, they're words
  * @returns {Search}
  */
-export const parseSearch = (text) => {
+export const parseSearch = (text, now = Date.now(), timeTags = true) => {
 	/** @type {Search} */
-	const out = { words: [], tags: [] };
+	const out = { words: [], tags: [], time: null };
 	for (const part of text.toLowerCase().split(/\s+/).filter(Boolean)) {
 		const m = /^([a-z-]+)(!=|>=|<=|>|<|=|:)(.+)$/.exec(part);
 		const [, name = '', op = '', raw = ''] = m || [];
+		const timeKey = TIME_KEYS[name];
+		if (timeTags && timeKey && (op === '=' || op === ':')) {
+			const value = timeKey === 'day' ? dayOf(raw, now) : timeOf(raw);
+			if (value !== null) { out.time = { ...out.time, [timeKey]: value }; continue; }
+		}
 		const key = TAG_KEYS[name];
 		if (key) {
 			const value = key === 'length' ? lengthOf(raw) : key === 'stars' ? (Number.isFinite(Number(raw)) ? Number(raw) : null) : raw;
@@ -167,7 +213,24 @@ export const parseSearch = (text) => {
 };
 
 /** Whether there's anything to search for. @param {Search} q */
-export const searching = (q) => q.words.length > 0 || q.tags.length > 0;
+export const searching = (q) => q.words.length > 0 || q.tags.length > 0 || q.time !== null;
+
+/**
+ * Whether a play's time fits the search's day, ts and te (this computer's time). With a day: from ts (or its start)
+ * to te (or its end); a te not after ts runs into the next day. Without one: that time of day, on any day.
+ * @param {Search} q @param {number} playedAt
+ */
+export const playedIn = (q, playedAt) => {
+	const t = q.time;
+	if (!t) return true;
+	const from = t.ts ?? 0, to = t.te ?? 24 * 60, wraps = to <= from;
+	if (t.day === undefined) {
+		const d = new Date(playedAt), m = d.getHours() * 60 + d.getMinutes();
+		return wraps ? m >= from || m < to : m >= from && m < to;
+	}
+	const at = (/** @type {number} */ days, /** @type {number} */ minutes) => { const d = new Date(/** @type {number} */ (t.day)); d.setDate(d.getDate() + days); d.setHours(0, minutes, 0, 0); return d.getTime(); };
+	return playedAt >= at(0, from) && playedAt < at(wraps ? 1 : 0, to);
+};
 
 /** The (up to) 2 skills a play or map trained most, 15% of its XP or more (the biggest always). @param {Gains} gains */
 export const topSkills = (gains) => {

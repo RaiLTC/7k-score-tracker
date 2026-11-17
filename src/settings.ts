@@ -21,6 +21,14 @@ export type Settings = {
 	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit, strainFor: number, strainUnit: RecentUnit,
 	/** Rank plays from another skill level, or from before a prestige, last (Effective Maps and Skills). */
 	outdateLevel: OnOff, outdatePrestige: OnOff,
+	/** Debug's advanced mode: Shift + click on a play copies it. */
+	advanced: OnOff,
+	/** ADHD Mode (motion and sounds), its volume (0-100), and each of its sounds. */
+	genz: OnOff, volume: number,
+	soundClick: OnOff, soundTab: OnOff, soundOpen: OnOff, soundPlay: OnOff, soundBest: OnOff, soundTicks: OnOff, soundFlash: OnOff, soundCopy: OnOff,
+	animButtons: OnOff, animSwitches: OnOff, animWindow: OnOff, animPages: OnOff, animFlash: OnOff, animBars: OnOff, animPlays: OnOff, animRows: OnOff, animConfetti: OnOff, soundSurprise: OnOff, soundHorn: OnOff, surpriseOpen: OnOff,
+	/** The accuracy XP a new play must give a map (more than this) for ADHD Mode's accuracy surprise. */
+	surpriseXp: number,
 	/** Skills hidden in Most effective maps and the recent list: `hidden`, maps that give it the most XP; `removed`,
 	 *  every map it's one of the top 2 skills of. */
 	hidden: string[], removed: string[],
@@ -34,7 +42,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', strainMode: 'max', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', hidden: [], removed: [], playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', surpriseXp: 2000, hidden: [], removed: [], playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -44,13 +52,15 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The number settings (how long counts as recent, how many maps each list shows, how many plays are averaged): a
  *  whole number from 1 (or `min`) to 999, or null. */
-export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent', 'oldFor', 'strainFor'] as const;
-export const wholeOf = (v: unknown, min = 1): number | null => {
+export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent', 'oldFor', 'strainFor', 'surpriseXp'] as const;
+export const wholeOf = (v: unknown, min = 1, max = 999): number | null => {
 	const n = Number(v);
-	return v !== '' && Number.isInteger(n) && n >= min && n <= 999 ? n : null;
+	return v !== '' && Number.isInteger(n) && n >= min && n <= max ? n : null;
 };
 /** The lowest each number setting takes: the recent list's plays averaged can be 0, for all of them. */
-export const NUMBER_MIN: Partial<Record<typeof NUMBER_SETTINGS[number], number>> = { avgOfRecent: 0 };
+export const NUMBER_MIN: Partial<Record<typeof NUMBER_SETTINGS[number], number>> = { avgOfRecent: 0, surpriseXp: 0 };
+/** The highest, where it isn't 999: the accuracy surprise's XP. */
+export const NUMBER_MAX: Partial<Record<typeof NUMBER_SETTINGS[number], number>> & { surpriseXp: number } = { surpriseXp: 99999 };
 
 /** Plays older than this are left out of Most effective maps (when that's on), in milliseconds. */
 export const oldMs = (s: Settings): number => s.oldFor * (s.oldUnit === 'h' ? 3600e3 : 60e3);
@@ -85,6 +95,30 @@ export const loadSettings = (): Settings => {
 		oldOn: oneOf(s.oldOn, ['off', 'on'], DEFAULTS.oldOn),
 		outdateLevel: oneOf(s.outdateLevel, ['off', 'on'], DEFAULTS.outdateLevel),
 		outdatePrestige: oneOf(s.outdatePrestige, ['off', 'on'], DEFAULTS.outdatePrestige),
+		advanced: oneOf(s.advanced, ['off', 'on'], DEFAULTS.advanced),
+		genz: oneOf(s.genz, ['off', 'on'], DEFAULTS.genz),
+		volume: Number.isInteger(s.volume) && s.volume >= 0 && s.volume <= 100 ? s.volume : DEFAULTS.volume,
+		soundClick: oneOf(s.soundClick, ['off', 'on'], DEFAULTS.soundClick),
+		soundTab: oneOf(s.soundTab, ['off', 'on'], DEFAULTS.soundTab),
+		soundOpen: oneOf(s.soundOpen, ['off', 'on'], DEFAULTS.soundOpen),
+		soundPlay: oneOf(s.soundPlay, ['off', 'on'], DEFAULTS.soundPlay),
+		soundBest: oneOf(s.soundBest, ['off', 'on'], DEFAULTS.soundBest),
+		soundTicks: oneOf(s.soundTicks, ['off', 'on'], DEFAULTS.soundTicks),
+		soundFlash: oneOf(s.soundFlash, ['off', 'on'], DEFAULTS.soundFlash),
+		animButtons: oneOf(s.animButtons, ['off', 'on'], DEFAULTS.animButtons),
+		animSwitches: oneOf(s.animSwitches, ['off', 'on'], DEFAULTS.animSwitches),
+		animWindow: oneOf(s.animWindow, ['off', 'on'], DEFAULTS.animWindow),
+		animPages: oneOf(s.animPages, ['off', 'on'], DEFAULTS.animPages),
+		animFlash: oneOf(s.animFlash, ['off', 'on'], DEFAULTS.animFlash),
+		animBars: oneOf(s.animBars, ['off', 'on'], DEFAULTS.animBars),
+		animPlays: oneOf(s.animPlays, ['off', 'on'], DEFAULTS.animPlays),
+		animRows: oneOf(s.animRows, ['off', 'on'], DEFAULTS.animRows),
+		animConfetti: oneOf(s.animConfetti, ['off', 'on'], DEFAULTS.animConfetti),
+		soundSurprise: oneOf(s.soundSurprise, ['off', 'on'], DEFAULTS.soundSurprise),
+		soundHorn: oneOf(s.soundHorn, ['off', 'on'], DEFAULTS.soundHorn),
+		surpriseOpen: oneOf(s.surpriseOpen, ['off', 'on'], DEFAULTS.surpriseOpen),
+		surpriseXp: wholeOf(s.surpriseXp, 0, NUMBER_MAX.surpriseXp) ?? DEFAULTS.surpriseXp,
+		soundCopy: oneOf(s.soundCopy, ['off', 'on'], DEFAULTS.soundCopy),
 		oldFor: wholeOf(s.oldFor) ?? DEFAULTS.oldFor,
 		oldUnit: oneOf(s.oldUnit, ['m', 'h'], DEFAULTS.oldUnit),
 		hidden: Array.isArray(s.hidden) ? s.hidden.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],

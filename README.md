@@ -45,8 +45,11 @@ npm run check   # typecheck, lint, test, build
 | `src/settings.ts` | What players can set (the shortcut, the last view) |
 | `src/rules/` | The rules, tested in `test/`: which plays are 7K and ranking maps (`logic.js`), strain per play (`strain.js`), the bar, mindblock and the plays to Peak (`peak.js`), outdated plays (`outdated.js`) |
 | `src/game/data.ts` | Reading plays, the game's API, the cached map catalogue, and what's kept on your computer |
+| `src/game/surprise.ts` | The maps ADHD Mode's accuracy surprise has played for |
 | `src/ui/view.ts` | The lists as HTML |
 | `src/ui/text.ts` | Every word players see |
+| `src/ui/genz.ts` | ADHD Mode: its animations and sounds |
+| `src/ui/sound-clips.ts` | ADHD Mode's recorded party horn (CC0, from Freesound) |
 | `src/ui/styles.css` | Styles, in the window's shadow root |
 | `src/ui/changelog.js` | CHANGELOG.md for the Changelog view, made by `npm run changelog` (also run by `build` and `check`) |
 
