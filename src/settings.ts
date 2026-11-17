@@ -19,6 +19,8 @@ export type Settings = {
 	hotkey: string, view: View, unit: Unit, buttons: ButtonStyle, skillsAs: SkillsAs, strainAs: StrainAs, strainMode: StrainMode, accent: AccentId, customAccent: string,
 	recent: RecentShow, recentFor: number, recentUnit: RecentUnit, recentCount: number, bestCount: number, avgOf: number, avgOfRecent: number,
 	oldOn: OnOff, oldFor: number, oldUnit: RecentUnit, strainFor: number, strainUnit: RecentUnit,
+	/** Rank plays from another skill level, or from before a prestige, last (Effective Maps and Skills). */
+	outdateLevel: OnOff, outdatePrestige: OnOff,
 	/** Skills hidden in Most effective maps and the recent list: `hidden`, maps that give it the most XP; `removed`,
 	 *  every map it's one of the top 2 skills of. */
 	hidden: string[], removed: string[],
@@ -32,7 +34,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', strainMode: 'max', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', hidden: [], removed: [], playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', hidden: [], removed: [], playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -81,6 +83,8 @@ export const loadSettings = (): Settings => {
 		avgOf: wholeOf(s.avgOf) ?? DEFAULTS.avgOf,
 		avgOfRecent: wholeOf(s.avgOfRecent, 0) ?? DEFAULTS.avgOfRecent,
 		oldOn: oneOf(s.oldOn, ['off', 'on'], DEFAULTS.oldOn),
+		outdateLevel: oneOf(s.outdateLevel, ['off', 'on'], DEFAULTS.outdateLevel),
+		outdatePrestige: oneOf(s.outdatePrestige, ['off', 'on'], DEFAULTS.outdatePrestige),
 		oldFor: wholeOf(s.oldFor) ?? DEFAULTS.oldFor,
 		oldUnit: oneOf(s.oldUnit, ['m', 'h'], DEFAULTS.oldUnit),
 		hidden: Array.isArray(s.hidden) ? s.hidden.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],

@@ -72,7 +72,12 @@ const breakdown = (gains: Gains, per = 1, label = '', mapId = 0, info = '') => {
 };
 
 /** A clickable row; its key lets an open row stay open when the list is drawn again. */
-const row = (key: string, stale = '', cls = '') => `class="row${cls ? ` ${cls}` : ''}${stale ? ' stale' : ''}" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"${stale ? ` title="${esc(stale)}"` : ''}`;
+const row = (key: string, stale = '', cls = '') => `class="row${cls ? ` ${cls}` : ''}${stale ? ' stale' : ''}" role="button" tabindex="0" aria-expanded="false" data-key="${esc(key)}"${stale && !cls.includes('out') ? ` title="${esc(stale)}"` : ''}`;
+/** A map cell, with why it's outdated (if it is) at its end: leveled up is a warning (with a ! saying a newer play
+ *  will override it), prestiged grays the row out. */
+const mapOut = (cell: string, why: string) => (why ? `<span class="map-out">${cell}<span class="out-note${why === 'level' ? ' warn' : ''}">${TEXT.outdated[why]}${why === 'level' ? `<i class="why" title="${TEXT.overrideHelp}" aria-label="${TEXT.overrideHelp}">!</i>` : ''}</span></span>` : cell);
+/** Only a prestige grays a map out and ranks it last. */
+const grayed = (why: string) => why === 'prestige';
 
 /** A map's latest XP is green when it gave more than the play before, red when less. Next to it: an arrow when it gave clearly less (or more) than the play before, 5% or more. */
 const TREND_MIN = 0.05;
@@ -183,26 +188,26 @@ export const gradeScale = (maps: MapStats[], since = 0): number[] => maps.filter
 
 /** The most effective maps; a map not played since `since` (if given) is grayed out, with `staleText` as its tooltip.
  *  XP per time is coloured against `scale` (another list's, from gradeScale), or against this list. */
-export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest, arrowsOnly = false, vOf?: (m: MapStats) => number | undefined, plainXp = false, scale?: number[]): string => {
+export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, staleText = '', empty: string = TEXT.noBest, arrowsOnly = false, vOf?: (m: MapStats) => number | undefined, plainXp = false, scale?: number[], out: (m: MapStats) => string = () => ''): string => {
 	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols;
-	const grade = gradeOf(scale?.length ? scale : gradeScale(maps, since)), now = Date.now();
-	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m) => `<div ${row(`${m.beatmapId}@${m.rate}`, m.lastAt < since ? staleText : '')}>
+	const grade = gradeOf(scale?.length ? scale : gradeScale(maps.filter((m) => !grayed(out(m))), since)), now = Date.now();
+	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m) => ((why) => `<div ${row(`${m.beatmapId}@${m.rate}`, grayed(why) ? TEXT.outdated[why]! : m.lastAt < since ? staleText : '', grayed(why) ? 'out' : '')}>
 		<span class="muted">${agoText(now - m.lastAt)}</span>
-		${mapCell(m.info, m.beatmapId)}
+		${mapOut(mapCell(m.info, m.beatmapId), why)}
 		<span class="muted">${rateText(m.rate)}</span>
 		<span class="muted">${m.n}</span>
 		${xpCell(m.lastXp, plainXp ? 0 : m.prevXp)}
-		${rateCell(m.perMinute, unit, m.lastAt < since ? undefined : grade)}
+		${rateCell(m.perMinute, unit, grayed(why) || m.lastAt < since ? undefined : grade)}
 		${strainCells(m.lastAt, arrowsOnly, vOf?.(m))}
 		${skillsCell(m.gains, as)}
-	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`).join('')}`;
+	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`)(out(m))).join('')}`;
 };
 
 /** The Skills tab: for each skill, the maps that gave it the most XP per minute of play; a map not played since
  *  `since` is grayed out, as in Effective Maps. */
-export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = '', none = ''): string => {
-	const groups = bestBySkill(maps, 5, since);
+export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = '', none = '', out: (m: MapStats, skill: string) => string = () => ''): string => {
+	const groups = bestBySkill(maps, 5, since, out);
 	if (!groups.length) return `<div class="empty">${TEXT.noBest}</div>`;
 	const c = TEXT.cols, now = Date.now();
 	// with `none`, a skill no map trained still shows, grayed out with it, so it doesn't look missing
@@ -216,20 +221,21 @@ export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText =
 			// row per rate (slowest first), each opening to its own
 			const cells = (y: typeof x.others[number], more: boolean) => `
 				<span class="muted">${agoText(now - y.map.lastAt)}</span>
-				${mapCell(y.map.info, y.map.beatmapId)}
+				${mapOut(mapCell(y.map.info, y.map.beatmapId), out(y.map, skill))}
 				<span class="muted">${more && x.others.length ? `<span class="rates">+${x.others.length}</span>` : rateText(y.map.rate)}</span>
 				<span class="muted">${y.map.n}</span>
 				<span>${xpText(y.map.lastXp)}</span>
 				<span>${xpText(y.perPlay)}</span>
-				${rateCell(y.perMinute, unit, y.map.lastAt < since ? undefined : grade)}
+				${rateCell(y.perMinute, unit, stale(y) ? undefined : grade)}
 				${strainCells(y.map.lastAt, true)}`;
-			const stale = (y: typeof x.others[number]) => (y.map.lastAt < since ? staleText : '');
+			const stale = (y: typeof x.others[number]) => (grayed(out(y.map, skill)) ? TEXT.outdated.prestige! : y.map.lastAt < since ? staleText : '');
 			const info = (y: typeof x.others[number]) => breakdown(y.map.last, 1, y.map.n > 1 ? TEXT.latest : '', y.map.beatmapId);
 			const key = `${skill}:${x.map.beatmapId}`;
-			if (!x.others.length) return `<div ${row(key, stale(x))}>${cells(x, true)}</div>${info(x)}`;
+			const cls = (y: typeof x.others[number], sub = '') => [sub, grayed(out(y.map, skill)) ? 'out' : ''].filter(Boolean).join(' ');
+			if (!x.others.length) return `<div ${row(key, stale(x), cls(x))}>${cells(x, true)}</div>${info(x)}`;
 			const rates = [x, ...x.others].sort((a, b) => a.map.rate - b.map.rate);
-			return `<div ${row(key, stale(x))}>${cells(x, true)}</div><div class="detail rates-list" hidden>${rates.map((y) => `<div ${row(`${key}@${y.map.rate}`, stale(y), 'sub')}>${cells(y, false)}</div>${info(y)}`).join('')}</div>`;
-		}).join(''))(gradeOf(top.filter((x) => x.map.lastAt >= since).map((x) => x.perMinute)))}
+			return `<div ${row(key, stale(x), cls(x))}>${cells(x, true)}</div><div class="detail rates-list" hidden>${rates.map((y) => `<div ${row(`${key}@${y.map.rate}`, stale(y), cls(y, 'sub'))}>${cells(y, false)}</div>${info(y)}`).join('')}</div>`;
+		}).join(''))(gradeOf(top.filter((x) => x.map.lastAt >= since && !grayed(out(x.map, skill))).map((x) => x.perMinute)))}
 	</details>`).join('');
 };
 

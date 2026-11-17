@@ -94,10 +94,13 @@ export const agoText = (ms) => {
  * known length go after, by XP per play. Skills no map trained are left out.
  * A map's rates are one entry, led (and ranked) by its rate with the most XP per minute among those played since
  * `since`, or, none played since then, by the rate played last; its other rates in `others`, slowest first.
+ * With `out` (a map's outdated reason for the skill), rates outdated by a prestige lead only when none is current,
+ * and maps outdated by one rank after the others (a level up only warns).
  * @param {MapStats[]} maps @param {number} [count] @param {number} [since]
+ * @param {(m: MapStats, skill: string) => string} [out]
  * @returns {{ skill: string, maps: (SkillMap & { others: SkillMap[] })[] }[]}
  */
-export const bestBySkill = (maps, count = 5, since = 0) => SKILLS_7K.map((skill) => {
+export const bestBySkill = (maps, count = 5, since = 0, out = () => '') => SKILLS_7K.map((skill) => {
 	/** @type {Map<number, SkillMap[]>} */
 	const byMap = new Map();
 	for (const m of maps) {
@@ -109,10 +112,12 @@ export const bestBySkill = (maps, count = 5, since = 0) => SKILLS_7K.map((skill)
 	}
 	const rows = [...byMap.values()].map((rates) => {
 		const fresh = (/** @type {SkillMap} */ x) => x.map.lastAt >= since;
-		rates.sort((a, b) => (Number(fresh(b)) - Number(fresh(a))) || (fresh(a) ? b.perMinute - a.perMinute : b.map.lastAt - a.map.lastAt));
+		const current = (/** @type {SkillMap} */ x) => Number(out(x.map, skill) !== 'prestige');
+		rates.sort((a, b) => (current(b) - current(a)) || (Number(fresh(b)) - Number(fresh(a))) || (fresh(a) ? b.perMinute - a.perMinute : b.map.lastAt - a.map.lastAt));
 		return { .../** @type {SkillMap} */ (rates[0]), others: rates.slice(1).sort((a, b) => a.map.rate - b.map.rate) };
 	});
-	return { skill, maps: rows.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay)).slice(0, count) };
+	const current = (/** @type {SkillMap} */ x) => Number(out(x.map, skill) !== 'prestige');
+	return { skill, maps: rows.sort((a, b) => (current(b) - current(a)) || (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay)).slice(0, count) };
 }).filter((s) => s.maps.length > 0);
 
 // ---- search ----

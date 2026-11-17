@@ -43,7 +43,7 @@ npm run check   # typecheck, lint, test, build
 | `src/index.ts` | What oss!idle calls: `mount`, `unmount` |
 | `src/Tracker.ts` | The add-on: window, shortcut, loading |
 | `src/settings.ts` | What players can set (the shortcut, the last view) |
-| `src/rules/` | The rules, tested in `test/`: which plays are 7K and ranking maps (`logic.js`), strain per play (`strain.js`), the bar, mindblock and the plays to Peak (`peak.js`) |
+| `src/rules/` | The rules, tested in `test/`: which plays are 7K and ranking maps (`logic.js`), strain per play (`strain.js`), the bar, mindblock and the plays to Peak (`peak.js`), outdated plays (`outdated.js`) |
 | `src/game/data.ts` | Reading plays, the game's API, the cached map catalogue, and what's kept on your computer |
 | `src/ui/view.ts` | The lists as HTML |
 | `src/ui/text.ts` | Every word players see |

@@ -10,6 +10,7 @@
 import { gameDb, type SqlValue } from '@oss-idle/addon-sdk';
 import { type MapInfo, type Play, is7kPlay, num, ONLY_7K, parseGains, totalOf } from '../rules/logic.js';
 import { restedStrain, strainPerMinute, strainWhenSet } from '../rules/strain.js';
+import { type LevelHistory, noteLevels } from '../rules/outdated.js';
 import { TEXT } from '../ui/text.js';
 
 const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
@@ -21,7 +22,7 @@ const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-
 const OLD_CATALOG_KEYS = ['catalog-v2'];
 
 type Api = {
-	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number } } | null | undefined>,
+	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number }, skills?: Record<string, { level?: number, prestige?: number }> } | null | undefined>,
 };
 /** id → [title, difficulty, keys, length in seconds, stars, mapper]; when it was fetched and last tried; maps it
  *  didn't have: id → [tries, when to try again]. */
@@ -226,6 +227,20 @@ type StrainStore = { game?: [minutes: number, at: number], prior?: [minutes: num
 export type StrainPlay = { v?: number, bar?: number, strained?: number, len?: number };
 let strainStore: StrainStore | undefined;
 
+// ---- your skills' levels and prestige, for outdated plays ----
+
+const LEVELS_KEY = '7k-score-tracker:levels';
+let levels: LevelHistory | undefined;
+/** Each skill's level and prestige as they changed (rules/outdated.js). */
+export const levelHistory = (): LevelHistory => {
+	if (levels) return levels;
+	try {
+		const h = JSON.parse(localStorage.getItem(LEVELS_KEY) ?? 'null') as LevelHistory | null;
+		if (h && typeof h === 'object') return (levels = h);
+	} catch { /* no storage: start empty */ }
+	return (levels = {});
+};
+
 // ---- for the debug view: the game's API calls, and the newest plays ----
 
 const API_LOG_KEY = 'api-log';
@@ -279,6 +294,7 @@ export const debugData = async (): Promise<Record<string, unknown>> => {
 	const time = (t: unknown) => (num(t) ? new Date(num(t)).toISOString() : t);
 	return {
 		api: (await apiLogOf()).map((c) => ({ ...c, at: time(c.at), atMs: c.at })),
+		levels: levelHistory(),
 		strain: { game: s.game && { minutes: s.game[0], at: time(s.game[1]) }, prior: s.prior && { minutes: s.prior[0], at: time(s.prior[1]) }, waits: s.waits ?? 0, playsNoted: Object.keys(s.plays).length },
 		catalog: { maps: Object.keys(cat.maps).length, fetchedAt: time(cat.at), triedAt: time(cat.tried), missing: cat.missing ?? {} },
 		character: id,
@@ -334,6 +350,10 @@ export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 	delete s.last;
 	const newest = (await rowsOf('SELECT playedAt, beatmapId, rate FROM score WHERE characterId = ? ORDER BY playedAt DESC LIMIT 1', [id]))?.[0];
 	const at = num(newest?.playedAt);
+	// the skills' levels and prestige: a change is the newest play's doing
+	if (me?.skills && noteLevels(levelHistory(), me.skills, at || Date.now())) {
+		try { localStorage.setItem(LEVELS_KEY, JSON.stringify(levelHistory())); } catch { /* kept for this session only */ }
+	}
 	if (newest && !(at in s.plays)) {
 		const info = infoOf(await mapCatalog([]), num(newest.beatmapId));
 		const lengthMin = info && info.lengthSec > 0 ? info.lengthSec / (num(newest.rate) || 1) / 60 : 0;

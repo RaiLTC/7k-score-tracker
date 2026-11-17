@@ -2,6 +2,14 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.5] - 2026-11-17
+
+### Added
+
+- Gray out maps in Effective Maps and Skills played before a prestige, and rank them last
+- Warn on maps played before a skill leveled up
+- Add settings to turn both off
+
 ## [1.1.4] - 2026-11-16
 
 ### Changed

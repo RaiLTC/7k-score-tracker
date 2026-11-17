@@ -3,7 +3,8 @@
 // window is closed, and while it's open, only clicks and keys do anything.
 
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
-import { TrackerError, debugData, latestMark, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
+import { TrackerError, debugData, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
+import { outdatedFor } from './rules/outdated.js';
 import { type MapStats, type Play, type Search, bestMaps, fitsSearch, mainSkill, parseSearch, searching, topSkills } from './rules/logic.js';
 import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MIN, NUMBER_SETTINGS, oldMs, strainMs, recentMs, settingsStore, wholeOf } from './settings.js';
 import { MINDBLOCK_FREE, type PeakMap, peakMinutes, planToPeak, strainBar } from './rules/peak.js';
@@ -144,6 +145,8 @@ export class Tracker extends Addon {
 						<section class="settings-box"><div class="settings-group">${TEXT.groups.best}</div>
 						${settingRow(TEXT.bestCount, TEXT.bestCountHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.bestCount}" data-number="bestCount">`)}
 						${settingRow(TEXT.avgOf, TEXT.avgOfHelp, `<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.avgOf}" data-number="avgOf">`)}
+						${settingRow(TEXT.outdateLevel, TEXT.outdateLevelHelp, choice('outdateLevel', TEXT.outdateLevel, TEXT.oldOptions))}
+						${settingRow(TEXT.outdatePrestige, TEXT.outdatePrestigeHelp, choice('outdatePrestige', TEXT.outdatePrestige, TEXT.oldOptions))}
 						${settingRow(TEXT.oldPlays, TEXT.oldPlaysHelp, `<span class="recent-for">${choice('oldOn', TEXT.oldPlays, TEXT.oldOptions)}<input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.oldPlays}" data-number="oldFor">${choice('oldUnit', TEXT.oldPlays, TEXT.recentUnits)}</span>`)}
 							<section class="settings-box"><div class="settings-group">${TEXT.groups.strain}</div>
 						${settingRow(TEXT.strainFor, TEXT.strainForHelp, `<span class="recent-for"><input type="text" class="num-field" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="${TEXT.strainFor}" data-number="strainFor">${choice('strainUnit', TEXT.strainFor, TEXT.recentUnits)}</span>`)}
@@ -221,6 +224,7 @@ export class Tracker extends Addon {
 			const keyOf = (el: HTMLElement) => `${el.closest<HTMLElement>('[data-list]')?.dataset.list}:${el.dataset.key}`;
 			const open = new Set(lists.flatMap((l) => [...l.querySelectorAll<HTMLElement>('[aria-expanded="true"], details[open]')]).map(keyOf));
 			const s = this.settings, now = Date.now(), since = now - recentMs(s), title = TEXT.recentTitle(s.recentFor, s.recentUnit);
+			const outdateBy = { level: s.outdateLevel === 'on', prestige: s.outdatePrestige === 'on' };
 			showStrainAs(s.strainAs);
 			if (page === 'plays') {
 				playsList.innerHTML = playsHtml(plays, now, s.unit, s.skillsAs, since, TEXT.stale(title), only, searching(query) ? TEXT.noMatch : only ? TEXT.noMapPlays(title) : TEXT.noPlays, 0, playsShown, keepPlay());
@@ -233,14 +237,22 @@ export class Tracker extends Addon {
 				// with old plays left out, only the newer ones count (a map played only before then drops out)
 				const kept = s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays;
 				const none = searching(query) ? TEXT.noMatch : undefined;
-				const best = shownSkills(keepMaps(bestMaps(kept, s.avgOf))).slice(0, s.bestCount);
-				bestList.innerHTML = bestHtml(best, s.unit, s.skillsAs, since, TEXT.stale(title), none, true);
+				// a map's latest play against its top skills (15% of its XP or more): a prestige outdates it (ranked after
+				// the others), a level up warns
+				const out = (m: MapStats) => {
+					const why = topSkills(m.last).map((sk) => outdatedFor(levelHistory(), sk, m.lastAt, outdateBy));
+					return why.includes('prestige') ? 'prestige' : why.includes('level') ? 'level' : '';
+				};
+				const ranked = shownSkills(keepMaps(bestMaps(kept, s.avgOf)));
+				const best = [...ranked.filter((m) => out(m) !== 'prestige'), ...ranked.filter((m) => out(m) === 'prestige')].slice(0, s.bestCount);
+				bestList.innerHTML = bestHtml(best, s.unit, s.skillsAs, since, TEXT.stale(title), none, true, undefined, false, undefined, out);
 				// the recent list counts only the plays inside the time, coloured as Effective Maps colours them
-				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best, since));
+				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best.filter((m) => out(m) !== 'prestige'), since));
 			} else {
 				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays, s.avgOf)), s.unit, since, TEXT.stale(title),
 					// a skill with no maps left after old plays are left out shows grayed out (not while searching)
-					s.oldOn === 'on' && !searching(query) ? TEXT.noSkillPlays(TEXT.recentTitle(s.oldFor, s.oldUnit)) : '');
+					s.oldOn === 'on' && !searching(query) ? TEXT.noSkillPlays(TEXT.recentTitle(s.oldFor, s.oldUnit)) : '',
+					(m, skill) => outdatedFor(levelHistory(), skill, m.lastAt, outdateBy));
 			}
 			this.drawnAt = now;
 			if (!open.size) return;
@@ -655,7 +667,7 @@ export class Tracker extends Addon {
 				this.save({ [set]: value } as Partial<Settings>);
 				applyLook();
 				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide';
-				if (['unit', 'skillsAs', 'strainAs', 'recentUnit', 'oldOn', 'oldUnit'].includes(set)) renderLists();
+				if (['unit', 'skillsAs', 'strainAs', 'recentUnit', 'oldOn', 'oldUnit', 'outdateLevel', 'outdatePrestige'].includes(set)) renderLists();
 				// Strain: picked again from the other plays, if it was picked
 				if ((set === 'strainMode' || set === 'strainUnit') && suggested) void pickSuggest();
 				return;
