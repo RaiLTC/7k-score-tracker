@@ -373,6 +373,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes flip { from { scale: 1 1; } to { scale: 1 .15; } }
 @media (prefers-reduced-motion: reduce) { .juice *, .juice *::before, .juice *::after, .juice.window { animation: none !important; transition: none !important; } }
 .num-field.wide { width: 80px; }
+/* ADHD Mode's settings: Animations and Sounds, each a row that opens to its settings */
+.settings-fold { border-top: 0.5px solid var(--line); }
+.settings-group + .settings-fold { border-top: 0; }
+.settings-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; cursor: pointer; list-style: none; font-weight: 500; }
+.settings-fold > summary::-webkit-details-marker { display: none; }
+.settings-fold > summary::before { content: '▸'; color: var(--muted); transition: rotate .15s; }
+.settings-fold[open] > summary::before { rotate: 90deg; }
+.settings-fold > summary:hover { color: var(--text); }
+.settings-fold > .settings-row { padding-left: 18px; }
+.settings-fold > summary + .settings-row { border-top: 0.5px solid var(--line); }
 .volume { display: flex; align-items: center; gap: 10px; }
 .volume input { width: 140px; accent-color: var(--accent); }
 .volume .num { width: 34px; color: var(--muted); text-align: right; }

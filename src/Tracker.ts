@@ -136,13 +136,18 @@ export class Tracker extends Addon {
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 						${settingRow(TEXT.genz, TEXT.genzHelp, choice('genz', TEXT.genz, TEXT.oldOptions))}
 						</section>
-						<section class="settings-box" data-genz-settings hidden><div class="settings-group">${TEXT.groups.genz} · ${TEXT.animations}</div>
+						<section class="settings-box" data-genz-settings hidden><div class="settings-group">${TEXT.groups.genz}</div>
+						<details class="settings-fold"><summary>${TEXT.animations}</summary>
 						${TEXT.anims.map(([key, name, help]) => settingRow(name, help, choice(key as keyof Settings, name, TEXT.oldOptions))).join('')}
 						${settingRow(TEXT.surpriseOpen, TEXT.surpriseOpenHelp, choice('surpriseOpen', TEXT.surpriseOpen, TEXT.oldOptions))}
 						${settingRow(TEXT.surpriseXp, TEXT.surpriseXpHelp, `<input type="text" class="num-field wide" inputmode="numeric" maxlength="5" autocomplete="off" spellcheck="false" aria-label="${TEXT.surpriseXp}" data-number="surpriseXp">`)}
-						<div class="settings-group">${TEXT.soundsTitle}</div>
+						</details>
+						<details class="settings-fold"><summary>${TEXT.soundsTitle}</summary>
+						${settingRow(TEXT.muteAll, TEXT.muteAllHelp, choice('muteAll', TEXT.muteAll, TEXT.oldOptions))}
+						${settingRow(TEXT.focusOnly, TEXT.focusOnlyHelp, choice('focusOnly', TEXT.focusOnly, TEXT.oldOptions))}
 						${settingRow(TEXT.volume, TEXT.volumeHelp, `<span class="volume"><input type="range" min="0" max="100" step="5" aria-label="${TEXT.volume}" data-volume><span class="num" data-volume-value></span></span>`)}
 						${TEXT.sounds.map(([key, name, help]) => settingRow(name, help, choice(key as keyof Settings, name, TEXT.oldOptions))).join('')}
+						</details>
 						</section>
 						<section class="settings-box"><div class="settings-group">${TEXT.groups.columns}</div>
 						${settingRow(TEXT.skillsAs, TEXT.skillsAsHelp, choice('skillsAs', TEXT.skillsAs, TEXT.skillsAsOptions))}
@@ -187,7 +192,7 @@ export class Tracker extends Addon {
 		const volume = $<HTMLInputElement>('[data-volume]');
 		const genz = createGenZ(root, win, () => {
 			const s = this.settings, on = (v: string) => v === 'on';
-			return { on: on(s.genz), volume: s.volume, sounds: { click: on(s.soundClick), tab: on(s.soundTab), open: on(s.soundOpen), play: on(s.soundPlay), best: on(s.soundBest), ticks: on(s.soundTicks), flash: on(s.soundFlash), copy: on(s.soundCopy), surprise: on(s.soundSurprise), horn: on(s.soundHorn) },
+			return { on: on(s.genz), volume: s.volume, mute: on(s.muteAll), focusOnly: on(s.focusOnly), sounds: { click: on(s.soundClick), tab: on(s.soundTab), open: on(s.soundOpen), play: on(s.soundPlay), best: on(s.soundBest), ticks: on(s.soundTicks), flash: on(s.soundFlash), copy: on(s.soundCopy), surprise: on(s.soundSurprise), horn: on(s.soundHorn) },
 				anims: { buttons: on(s.animButtons), switches: on(s.animSwitches), window: on(s.animWindow), pages: on(s.animPages), flash: on(s.animFlash), bars: on(s.animBars), plays: on(s.animPlays), rows: on(s.animRows), confetti: on(s.animConfetti) } };
 		});
 		this.own(() => genz.dispose());

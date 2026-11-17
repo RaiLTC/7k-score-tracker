@@ -9,7 +9,10 @@ import { CLIP_LEAD, PARTY_HORNS } from './sound-clips.js';
 
 export type SoundId = 'click' | 'tab' | 'open' | 'play' | 'best' | 'ticks' | 'flash' | 'copy' | 'surprise' | 'horn';
 export type AnimId = 'buttons' | 'switches' | 'window' | 'pages' | 'flash' | 'bars' | 'plays' | 'rows' | 'confetti';
-export type GenZOptions = { on: boolean, volume: number, sounds: Record<SoundId, boolean>, anims: Record<AnimId, boolean> };
+export type GenZOptions = { on: boolean, volume: number, mute: boolean, focusOnly: boolean, sounds: Record<SoundId, boolean>, anims: Record<AnimId, boolean> };
+/** Whether a sound plays: ADHD Mode on, sounds not muted, that sound on, the volume above 0, and (when asked) the
+ *  game in front: its window focused and its tab shown. */
+const heard = (o: GenZOptions, sound: SoundId) => o.on && !o.mute && o.sounds[sound] && o.volume > 0 && (!o.focusOnly || (document.hasFocus() && !document.hidden));
 const ANIMS: AnimId[] = ['buttons', 'switches', 'window', 'pages', 'flash', 'bars', 'plays', 'rows', 'confetti'];
 /** The confetti's colours: the skills'. */
 const CONFETTI = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#d946ef', '#ec4899', '#ffffff'];
@@ -47,7 +50,7 @@ export const createGenZ = (root: ShadowRoot, win: HTMLElement, options: () => Ge
 	 *  they're skipped. */
 	const note = (sound: SoundId, f: number, { to = f, wave = 'sine' as OscillatorType, vol = 0.1, len = 0.2, at = 0 } = {}) => {
 		const o = options();
-		if (!o.on || !o.sounds[sound] || !(o.volume > 0)) return undefined;
+		if (!heard(o, sound)) return undefined;
 		try {
 			audio ??= new AudioContext();
 			if (audio.state === 'suspended') void audio.resume();
@@ -68,7 +71,7 @@ export const createGenZ = (root: ShadowRoot, win: HTMLElement, options: () => Ge
 	/** A burst of noise through a band (Hz), for mechanical sounds, `at` s from now. */
 	const noise = (sound: SoundId, band: number, { vol = 0.1, len = 0.03, at = 0 } = {}) => {
 		const o = options();
-		if (!o.on || !o.sounds[sound] || !(o.volume > 0) || audio?.state !== 'running') return;
+		if (!heard(o, sound) || audio?.state !== 'running') return;
 		try {
 			const t = audio.currentTime + at, frames = Math.ceil(audio.sampleRate * len);
 			const buffer = audio.createBuffer(1, frames, audio.sampleRate), data = buffer.getChannelData(0);
@@ -90,7 +93,7 @@ export const createGenZ = (root: ShadowRoot, win: HTMLElement, options: () => Ge
 	/** One of a set of recorded clips, picked at random, `at` s from now, at `vol` (0-1), fading out at its end. */
 	const clip = (sound: SoundId, buffers: () => Promise<AudioBuffer[]>, at: number, vol: number) => {
 		const o = options();
-		if (!o.on || !o.sounds[sound] || !(o.volume > 0) || audio?.state !== 'running') return;
+		if (!heard(o, sound) || audio?.state !== 'running') return;
 		const a = audio, asked = a.currentTime;
 		void buffers().then((list) => {
 			const buf = list[Math.floor(Math.random() * list.length)];

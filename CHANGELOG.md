@@ -2,6 +2,17 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.8] - 2026-11-17
+
+### Added
+
+- Add a setting to mute all ADHD Mode sounds
+- Play ADHD Mode sounds only while the game is focused (a setting, on by default)
+
+### Changed
+
+- Group ADHD Mode settings into Animations and Sounds, which open and close
+
 ## [1.1.7] - 2026-11-17
 
 ### Added
