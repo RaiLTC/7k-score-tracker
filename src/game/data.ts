@@ -178,7 +178,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	for (const { r, gains } of parsed) {
 		const info = infoOf(cat, num(r.beatmapId));
 		if (!is7kPlay(info, gains)) continue;
-		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp) });
+		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp), xpSaved: r.gains != null });
 	}
 	return out;
 };

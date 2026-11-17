@@ -9,7 +9,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
 /**
  * @typedef {Record<string, number>} Gains  XP per skill
  * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number, stars?: number, mapper?: string }} MapInfo
- * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number, pp?: number }} Play
+ * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number, pp?: number, xpSaved?: boolean }} Play
  * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, nXp: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, prevAt: number, prevXp: number, perPlay: number, perMinute: number }} MapStats
  */
 
@@ -33,15 +33,19 @@ export const totalOf = (gains) => SKILLS_7K.reduce((t, sk) => t + num(gains[sk])
  *  7K-only skill. @param {MapInfo | undefined} info @param {Gains} gains */
 export const is7kPlay = (info, gains) => (info ? info.keys === 7 : ONLY_7K.some((sk) => num(gains[sk]) > 0));
 
+/** How long a play with no XP waits for the game to write it before it counts as 0. */
+export const XP_WAIT = 60e3;
+
 /**
  * The maps played, best first: XP per minute of play (the map's length at the play's rate). The same map at another
  * rate is its own entry. Maps with no known length go after, by XP per play; maps that gave no XP are left out.
- * The averages use only each map's latest `avgOf` plays with XP.
+ * The averages use only each map's latest `avgOf` plays whose XP is known.
  * @param {Play[]} plays
  * @param {number} [avgOf]
+ * @param {number} [now]
  * @returns {MapStats[]}
  */
-export const bestMaps = (plays, avgOf = Infinity) => {
+export const bestMaps = (plays, avgOf = Infinity, now = Date.now()) => {
 	/** @type {Map<string, { m: Omit<MapStats, 'perPlay' | 'perMinute'>, withXp: Play[] }>} */
 	const byMap = new Map();
 	for (const p of plays) {
@@ -49,9 +53,10 @@ export const bestMaps = (plays, avgOf = Infinity) => {
 		const key = `${p.beatmapId}@${rate}`;
 		const entry = byMap.get(key) || { m: { beatmapId: p.beatmapId, rate, info: p.info, n: 0, nXp: 0, xp: 0, gains: {}, lastAt: -1, last: {}, lastXp: 0, prevAt: -1, prevXp: 0 }, withXp: [] };
 		entry.m.n++;
-		// a play saved without XP (not written yet, or none given) counts as played, but not in the averages or as
-		// the latest play
-		if (p.total > 0) entry.withXp.push(p);
+		// a play's XP is known once it has some, the game saved it as 0, or a minute has passed (the game writes it
+		// shortly after the play): until then it counts as played, but not in the averages or as the latest play.
+		// Known as 0, it's the latest like any other, so a map that gives nothing now drops out
+		if (p.total > 0 || p.xpSaved || now - p.playedAt >= XP_WAIT) entry.withXp.push(p);
 		byMap.set(key, entry);
 	}
 	const out = [];
@@ -69,6 +74,7 @@ export const bestMaps = (plays, avgOf = Infinity) => {
 			m.xp += p.total;
 			for (const sk of SKILLS_7K) m.gains[sk] = (m.gains[sk] || 0) + num(p.gains[sk]);
 		}
+		if (!(m.xp > 0)) continue;
 		const minutes = m.info && m.info.lengthSec > 0 ? m.info.lengthSec / m.rate / 60 : 0;
 		out.push({ ...m, perPlay: m.xp / m.nXp, perMinute: minutes ? m.xp / m.nXp / minutes : 0 });
 	}

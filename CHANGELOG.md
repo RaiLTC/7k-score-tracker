@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.6] - 2026-11-17
+
+### Fixed
+
+- Drop maps from Effective Maps and Skills when their newest play gave no XP
+
 ## [1.1.5] - 2026-11-17
 
 ### Added
