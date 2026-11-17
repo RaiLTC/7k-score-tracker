@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.9] - 2026-11-17
+
+### Fixed
+
+- Hide the tabs' highlight in ADHD Mode while Settings, Debug or the Changelog is open
+
 ## [1.1.8] - 2026-11-17
 
 ### Added

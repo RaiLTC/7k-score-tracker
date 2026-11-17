@@ -176,9 +176,13 @@ export const createGenZ = (root: ShadowRoot, win: HTMLElement, options: () => Ge
 		if (!anim('switches')) return;
 		const places = [...root.querySelectorAll<HTMLElement>('.seg')].map((seg) => {
 			const b = seg.querySelector<HTMLElement>('button[aria-selected="true"], button[aria-checked="true"]');
-			return { pill: seg.firstElementChild as HTMLElement, w: b?.offsetWidth ?? 0, x: (b?.offsetLeft ?? 0) - 2 };
+			return { pill: seg.firstElementChild as HTMLElement, w: b?.offsetWidth ?? 0, x: (b?.offsetLeft ?? 0) - 2, picked: b !== null };
 		});
-		for (const { pill, w, x } of places) if (w) { pill.style.width = `${w}px`; pill.style.transform = `translateX(${x}px)`; }
+		// nothing picked (the view tabs on Settings, Debug or the Changelog): no pill; it slides in from there next time
+		for (const { pill, w, x, picked } of places) {
+			pill.style.opacity = picked ? '' : '0';
+			if (w) { pill.style.width = `${w}px`; pill.style.transform = `translateX(${x}px)`; }
+		}
 	};
 
 	// ---- maps coming into view: they flash, then their bars grow ----
