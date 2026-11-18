@@ -227,6 +227,33 @@ export const allTimeHtml = (maps: BestEver[], unit: Unit, as: SkillsAs, empty: s
 	}).join('')}`;
 };
 
+/** A Shared row: a map and rate's base XP from everyone's plays, with its name and your own XP per minute there. */
+export type SharedRow = { map: number, rate: number, players: number, plays: number, perMinute: number, base: Gains, info: MapInfo | undefined, you: number };
+/** A map's best rate, with its other rates. */
+export type SharedGroup = SharedRow & { others: SharedRow[] };
+
+/** The Shared tab: each map's base XP per time from everyone's plays (bonuses taken out), best first, with how many
+ *  players and plays it's from and your own XP per time there (your real XP, bonuses and all); a map with more than one rate opens to a row per rate
+ *  (slowest first), as in All Time Highest. */
+export const sharedHtml = (groups: SharedGroup[], unit: Unit, as: SkillsAs, empty: string): string => {
+	if (!groups.length) return `<div class="empty">${esc(empty)}</div>`;
+	const c = TEXT.cols, grade = gradeOf(groups.map((g) => g.perMinute));
+	const cells = (m: SharedRow, folder: number) => `
+		${mapCell(m.info, m.map)}
+		<span class="muted">${folder ? `<span class="rates">+${folder}</span>` : rateText(m.rate)}</span>
+		<span class="muted">${m.players}</span>
+		<span class="muted">${m.plays}</span>
+		${rateCell(m.perMinute, unit, grade)}
+		<span class="muted">${m.you > 0 ? rateXp(m.you, unit) : '–'}</span>
+		${skillsCell(m.base, as)}`;
+	return `<div class="row head-row"><span>${c.map}</span><span>${c.rate}</span><span>${c.players}</span><span>${c.plays}</span><span>${TEXT.sharedBase(TEXT.units[unit] ?? '')}</span><span>${TEXT.sharedYou(TEXT.units[unit] ?? '')}</span><span>${c.skills}</span></div>${groups.map((g) => {
+		const key = `${g.map}@${g.rate}`;
+		if (!g.others.length) return `<div class="row" data-key="${esc(key)}">${cells(g, 0)}</div>`;
+		const rates = [g, ...g.others].sort((a, b) => a.rate - b.rate);
+		return `<div ${row(key)}>${cells(g, g.others.length)}</div><div class="detail rates-list" hidden>${rates.map((y) => `<div class="row sub" data-key="${esc(`${key}>${y.rate}`)}">${cells(y, 0)}</div>`).join('')}</div>`;
+	}).join('')}`;
+};
+
 /** The Skills tab: for each skill, the maps that gave it the most XP per minute of play; a map not played since
  *  `since` is grayed out, as in Effective Maps. */
 export const bySkillHtml = (maps: MapStats[], unit: Unit, since = 0, staleText = '', none = '', out: (m: MapStats, skill: string) => string = () => ''): string => {

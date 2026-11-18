@@ -192,7 +192,7 @@ export const createGenZ = (root: ShadowRoot, win: HTMLElement, options: () => Ge
 	// page switch or a list drawn again, only after the tracker was away (closed or the game hidden) for 5 minutes, or
 	// for a new Strain pick. New plays don't flash (they have their own effect), but their bars grow. Only rows waiting
 	// to grow hide their bars (.wait): lists this doesn't watch show theirs as always.
-	const FLASH_LISTS = /^(plays|best|recent|suggest-)/;
+	const FLASH_LISTS = /^(plays|best|recent|suggest-|shared)/;
 	/** By list: the rows that have flashed, and the rows whose bars have grown (or are about to). */
 	const flashed = new Map<string, Set<string>>(), grown = new Map<string, Set<string>>();
 	const setOf = (sets: Map<string, Set<string>>, list: string) => {

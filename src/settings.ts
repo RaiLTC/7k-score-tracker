@@ -4,7 +4,9 @@
 import { createSettings, parseHotkey } from '@oss-idle/addon-sdk';
 import { SKILLS_7K } from './rules/logic.js';
 
-export type View = 'plays' | 'best' | 'skills' | 'suggest';
+export type View = 'plays' | 'best' | 'skills' | 'suggest' | 'shared';
+/** Sharing plays for Shared: 'ask' until the player answers the warning. */
+export type Share = 'ask' | 'on' | 'off';
 export type Unit = 'h' | 'm' | 's';
 export type ButtonStyle = 'solid' | 'outlined' | 'tinted';
 export type SkillsAs = 'bar' | 'top';
@@ -35,7 +37,7 @@ export type Settings = {
 	surpriseXp: number,
 	/** Skills hidden in Most effective maps and the recent list: `hidden`, maps that give it the most XP; `removed`,
 	 *  every map it's one of the top 2 skills of. */
-	hidden: string[], removed: string[],
+	hidden: string[], removed: string[], focused: string[], share: Share,
 	/** The game playlist the add-on saves into (0 until the first save). */
 	playlistId: number,
 };
@@ -46,7 +48,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', strainMode: 'max', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', muteAll: 'off', focusOnly: 'on', atCount: 25, atMin: 0, atMax: 0, surpriseXp: 2000, hidden: [], removed: [], playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', muteAll: 'off', focusOnly: 'on', atCount: 25, atMin: 0, atMax: 0, surpriseXp: 2000, hidden: [], removed: [], focused: [], share: 'ask', playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -84,7 +86,8 @@ export const loadSettings = (): Settings => {
 	try { parseHotkey(s.hotkey); hotkey = s.hotkey; } catch { /* the default */ }
 	return {
 		hotkey,
-		view: oneOf(s.view, ['plays', 'best', 'skills', 'suggest'], DEFAULTS.view),
+		view: oneOf(s.view, ['plays', 'best', 'skills', 'suggest', 'shared'], DEFAULTS.view),
+		share: oneOf(s.share, ['ask', 'on', 'off'], DEFAULTS.share),
 		unit: oneOf(s.unit, ['h', 'm', 's'], DEFAULTS.unit),
 		buttons: oneOf(s.buttons, ['solid', 'outlined', 'tinted'], DEFAULTS.buttons),
 		skillsAs: oneOf(s.skillsAs, ['bar', 'top'], DEFAULTS.skillsAs),
@@ -135,6 +138,7 @@ export const loadSettings = (): Settings => {
 		oldUnit: oneOf(s.oldUnit, ['m', 'h'], DEFAULTS.oldUnit),
 		hidden: Array.isArray(s.hidden) ? s.hidden.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],
 		removed: Array.isArray(s.removed) ? s.removed.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],
+		focused: Array.isArray(s.focused) ? s.focused.filter((sk) => (SKILLS_7K as readonly string[]).includes(sk)) : [],
 		playlistId: Number.isInteger(s.playlistId) && s.playlistId > 0 ? s.playlistId : 0,
 		recentUnit: oneOf(s.recentUnit, ['m', 'h'], DEFAULTS.recentUnit),
 		strainUnit: oneOf(s.strainUnit, ['m', 'h'], DEFAULTS.strainUnit),

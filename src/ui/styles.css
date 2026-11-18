@@ -27,7 +27,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .strong { font-weight: 500; }
 .num { text-align: right; }
 
-.head { display: flex; align-items: center; gap: 8px; padding: 2px 4px; cursor: grab; user-select: none; touch-action: none; }
+/* the game turns text selection off for the whole page: Debug and the changelog can be selected and copied */
+.debug-body, .changelog-body { user-select: text; -webkit-user-select: text; cursor: auto; }
+.head { display: flex; flex-direction: column; gap: 8px; padding: 2px 4px; cursor: grab; user-select: none; touch-action: none; }
+/* the header: the title, versions and icon buttons; then the tabs, the search box, the unit and Refresh */
+.title-row, .tab-row { display: flex; align-items: center; gap: 8px; }
+.versions { color: var(--muted); font-size: 12px; }
+.tab-row .search { flex: 1; min-width: 120px; cursor: auto; }
+.tab-row .search-field { height: 32px; }
 .head:active { cursor: grabbing; }
 .title { font-size: 14px; font-weight: 500; }
 .spacer { margin-left: auto; }
@@ -74,15 +81,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* the search box: under the header, the window's full width */
 .search { position: relative; display: flex; }
 .search-field { padding-right: 40px; }
-.search-help { position: absolute; top: 5px; right: 6px; width: 24px; height: 24px; padding: 0; color: var(--muted); background: var(--hover); border: 0; border-radius: 6px; font-size: 12px; font-weight: 600; }
+/* the ? reads as a button: it lists every search operator */
+.search-help { position: absolute; top: 4px; right: 5px; width: 24px; height: 24px; padding: 0; color: var(--text); background: var(--card); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; font-weight: 600; }
 .search-help:hover, .search-help[aria-expanded='true'] { color: var(--text); background: var(--line-strong); }
 /* the search help: a small window under the search bar, over the lists */
-.search-pop { position: absolute; top: 40px; right: 0; z-index: 2; width: min(540px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / 50%); }
+.search-pop { position: absolute; top: 40px; right: 0; z-index: 2; width: min(480px, 90vw); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / 50%); }
 .search-pop[hidden] { display: none; }
 .search-pop-head { display: flex; align-items: center; justify-content: space-between; }
-.search-pop .ops { display: grid; grid-template-columns: 64px 1fr auto; gap: 6px 14px; align-items: baseline; font-size: 12px; }
-.search-pop .ops > :nth-child(3n+1) { justify-self: start; }
-.search-pop .ops .ex { justify-self: end; color: var(--muted); }
+/* the operators: a names column wide enough for the longest, each box only as wide as its name */
+.search-pop .ops { display: grid; grid-template-columns: 88px 1fr; gap: 6px 14px; align-items: baseline; font-size: 12px; }
+.search-pop .ops > code { justify-self: start; }
 .search-pop .ops-label { padding-top: 2px; font-weight: 500; }
 .search-pop code { padding: 1px 6px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 5px; font: 12px ui-monospace, Consolas, monospace; white-space: nowrap; }
 .search-field { flex: 1; min-width: 0; height: 34px; padding: 0 12px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 8px; font: inherit; }
@@ -180,6 +188,43 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .legend-skill[aria-pressed='mixed'] .dot { background: none; box-shadow: inset 0 0 0 1.5px #6b6c75; }
 .legend-skill[aria-pressed='false'] { color: #6b6c75; text-decoration: line-through; }
 .legend-skill[aria-pressed='false'] .dot { background: #3a3b45; }
+/* a focused skill: outlined in the accent; the other shown skills dim while any is focused */
+.legend-skill.focus { color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1px var(--accent); }
+.legend-list.focusing .legend-skill[aria-pressed='true']:not(.focus) { opacity: .55; }
+.legend .card-head { align-items: center; }
+.legend .reset-all { margin-left: auto; }
+/* Shared: each map's base XP from everyone's plays */
+.shared .row { grid-template-columns: minmax(0, 1fr) repeat(3, 56px) 72px 72px 124px; }
+.shared .row > :nth-child(n+2):nth-child(-n+6) { text-align: center; }
+.shared .card-head .shared-pool { margin-left: auto; color: var(--text); }
+.shared .card-head .shared-status { margin-left: auto; }
+.shared .card-head .shared-pool:not([hidden]) + .shared-status { margin-left: 12px; }
+/* Shared's statistics bar */
+.shared-stats { display: flex; gap: 8px; margin: 0 0 8px; }
+.shared-stats span { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; color: var(--muted); background: color-mix(in srgb, var(--text) 3%, transparent); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; }
+.shared-stats b { color: var(--text); font-size: 13px; font-weight: 600; }
+.shared .detail.rates-list { padding: 0; }
+.shared .row.sub { min-height: 32px; border-top: 0; font-size: 12px; contain-intrinsic-size: auto 32px; }
+/* the sharing warning: in the middle of the window, over the Shared tab (blurred, not clickable) until answered */
+.share-veil { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(10 10 14 / 45%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-radius: inherit; }
+.share-veil[hidden] { display: none; }
+.share-ask { flex: none; width: min(620px, 100%); max-height: 100%; overflow: auto; border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong)); box-shadow: 0 24px 80px rgb(0 0 0 / 60%); }
+.share-ask .lead { margin: 2px 0 10px; color: var(--text); }
+.share-ask .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-bottom: 10px; font-size: 12px; }
+.share-ask h4 { margin: 0 0 4px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.share-ask h4.next { margin-top: 8px; }
+.share-ask ul { margin: 0; padding-left: 16px; line-height: 1.6; }
+.share-ask .sample { margin: 0 0 10px; background: #111; border: 1px solid #1f1f1f; border-radius: 6px; }
+.share-ask .sample[hidden] { display: none; }
+.share-ask .foot { display: flex; align-items: center; gap: 8px; }
+.share-ask .foot .muted { flex: 1; font-size: 12px; }
+.share-ask .link { padding: 0; color: var(--accent); background: none; border: 0; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+/* a batch reaching Shared: a note at the bottom right for a moment */
+.sent-note { position: absolute; right: 16px; bottom: 16px; z-index: 6; padding: 8px 14px; color: var(--text); background: var(--card); border: 1px solid var(--line-strong); border-left: 3px solid #4ade80; border-radius: 8px; box-shadow: 0 12px 32px rgb(0 0 0 / 50%); font-size: 12px; pointer-events: none; }
+.a-plays .sent-note { animation: sent-in .25s var(--spring) both; }
+.a-plays .sent-note.out { animation: sent-out .2s ease-in both; }
+@keyframes sent-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes sent-out { to { opacity: 0; transform: translateY(6px); } }
 .top-skills { flex-direction: column; flex-wrap: nowrap; gap: 0; padding: 4px 0; font-size: 11px; line-height: 1.35; min-width: 0; }
 .top-skills span { overflow: hidden; text-overflow: ellipsis; }
 
@@ -228,7 +273,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dbg[open] > summary::before { content: '▾'; }
 .dbg > summary::-webkit-details-marker { display: none; }
 .dbg > summary > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dbg pre { margin: 0; padding: 8px 12px; color: #9fe39f; font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; border-top: 1px solid #1f1f1f; }
+.dbg pre, .dbg-text { margin: 0; padding: 8px 12px; color: #9fe39f; font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; border-top: 1px solid #1f1f1f; }
+.dbg-text { display: block; field-sizing: content; width: 100%; box-sizing: border-box; overflow: hidden; resize: none; background: transparent; border: 0; border-top: 1px solid #1f1f1f; outline: none; cursor: text; }
 .dbg-list { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-top: 1px solid #1f1f1f; }
 .dbg-list .dbg > summary { color: #b8b8b8; font-size: 12px; }
 /* Recent plays in Debug: a tick per play, and Select all above them */

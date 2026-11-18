@@ -2,6 +2,23 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] - 2026-11-18
+
+### Added
+
+- Add Shared: each map's base XP from everyone's plays, with your bonuses taken out
+- Ask once whether to share your plays with Shared; change it later in Settings
+- Add a statistics bar to Shared
+- Focus on a skill in the Skills box, and reset every skill at once
+- Show the add-on's and the game's version
+- Show each play's base XP in Debug
+
+### Changed
+
+- Give the title its own row, and put the search box next to the tabs
+- Show only the operators in the search help, by their full names
+- Let you select and copy text in Debug and the changelog
+
 ## [1.1.10] - 2026-11-18
 
 ### Added

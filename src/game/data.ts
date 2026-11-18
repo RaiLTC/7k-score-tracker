@@ -11,6 +11,7 @@ import { gameDb, type SqlValue } from '@oss-idle/addon-sdk';
 import { type MapInfo, type Play, is7kPlay, num, ONLY_7K, parseGains, totalOf } from '../rules/logic.js';
 import { restedStrain, strainPerMinute, strainWhenSet } from '../rules/strain.js';
 import { type LevelHistory, noteLevels } from '../rules/outdated.js';
+import { type MultiplierHistory, baseXp, noteMultipliers, recentOfMap } from '../rules/base.js';
 import { TEXT } from '../ui/text.js';
 
 const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
@@ -24,7 +25,7 @@ const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-
 const OLD_CATALOG_KEYS = ['catalog-v2'];
 
 type Api = {
-	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number }, skills?: Record<string, { level?: number, prestige?: number }> } | null | undefined>,
+	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number }, skills?: Record<string, { level?: number, prestige?: number, xp_multipliers?: { total?: string } }> } | null | undefined>,
 };
 /** id → [title, difficulty, keys, length in seconds, stars, mapper]; when it was fetched and last tried; maps it
  *  didn't have: id → [tries, when to try again]. */
@@ -170,7 +171,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	let cat: Catalog | undefined;
 	for (let batch = 0; batch < READ_BATCHES && out.length < READ_PLAYS; batch++) {
 		const rows = await rowsOf(
-			`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, s.pp AS pp, x.gains AS gains
+			`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, s.pp AS pp, s.accuracy AS acc, s.MISS AS misses, x.gains AS gains
 			 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
 			 WHERE s.characterId = ? ORDER BY s.playedAt DESC, s.id DESC LIMIT ? OFFSET ?`, [id, READ_PLAYS, batch * READ_PLAYS]);
 		if (rows === null) throw new TrackerError(TEXT.errors.noDatabase);
@@ -181,7 +182,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 		for (const { r, gains } of parsed) {
 			const info = infoOf(cat, num(r.beatmapId));
 			if (!is7kPlay(info, gains)) continue;
-			out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp), xpSaved: r.gains != null });
+			out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp), xpSaved: r.gains != null, acc: num(r.acc), misses: num(r.misses) });
 		}
 		if (rows.length < READ_PLAYS) break;
 	}
@@ -269,6 +270,27 @@ let strainStore: StrainStore | undefined;
 const LEVELS_KEY = '7k-score-tracker:levels';
 let levels: LevelHistory | undefined;
 /** Each skill's level and prestige as they changed (rules/outdated.js). */
+const MULTIPLIERS_KEY = '7k-score-tracker:multipliers';
+let multipliers: MultiplierHistory | undefined;
+/** Each skill's XP multiplier as it changed (rules/base.js), for base XP. */
+export const multiplierHistory = (): MultiplierHistory => {
+	if (multipliers) return multipliers;
+	try {
+		const h = JSON.parse(localStorage.getItem(MULTIPLIERS_KEY) ?? 'null') as MultiplierHistory | null;
+		if (h && typeof h === 'object') return (multipliers = h);
+	} catch { /* no storage: start empty */ }
+	return (multipliers = {});
+};
+
+/** Maps' names and lengths from the catalogue, by id (undefined for one it doesn't know). */
+export const mapInfos = async (ids: number[]): Promise<Record<number, MapInfo | undefined>> => {
+	const cat = await mapCatalog([]);
+	return Object.fromEntries(ids.map((id) => [id, infoOf(cat, id)]));
+};
+
+/** Each play's base XP (its XP with your bonuses taken back out), or why it can't be used: newest first, as `plays`. */
+export const basePlays = (plays: Play[]) => plays.map((p, i) => ({ play: p, ...baseXp(p, { history: multiplierHistory(), recent: recentOfMap(plays, i), bar: strainOf(p.playedAt)?.bar }) }));
+
 export const levelHistory = (): LevelHistory => {
 	if (levels) return levels;
 	try {
@@ -332,6 +354,7 @@ export const debugData = async (keep?: (info: MapInfo | undefined, beatmapId: nu
 	return {
 		api: (await apiLogOf()).map((c) => ({ ...c, at: time(c.at), atMs: c.at })),
 		levels: levelHistory(),
+		multipliers: multiplierHistory(),
 		allTime: everFrom,
 		strain: { game: s.game && { minutes: s.game[0], at: time(s.game[1]) }, prior: s.prior && { minutes: s.prior[0], at: time(s.prior[1]) }, waits: s.waits ?? 0, playsNoted: Object.keys(s.plays).length },
 		catalog: { maps: Object.keys(cat.maps).length, fetchedAt: time(cat.at), triedAt: time(cat.tried), missing: cat.missing ?? {} },
@@ -410,6 +433,10 @@ export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 	// the skills' levels and prestige: a change is the newest play's doing
 	if (me?.skills && noteLevels(levelHistory(), me.skills, at || Date.now())) {
 		try { localStorage.setItem(LEVELS_KEY, JSON.stringify(levelHistory())); } catch { /* kept for this session only */ }
+	}
+	// the XP multipliers: from when they were seen (a change comes from an upgrade bought, not from a play)
+	if (me?.skills && noteMultipliers(multiplierHistory(), me.skills, Date.now())) {
+		try { localStorage.setItem(MULTIPLIERS_KEY, JSON.stringify(multiplierHistory())); } catch { /* kept for this session only */ }
 	}
 	if (newest && !(at in s.plays)) {
 		const info = infoOf(await mapCatalog([]), num(newest.beatmapId));

@@ -9,7 +9,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
 /**
  * @typedef {Record<string, number>} Gains  XP per skill
  * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number, stars?: number, mapper?: string }} MapInfo
- * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number, pp?: number, xpSaved?: boolean, n?: number }} Play
+ * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number, pp?: number, xpSaved?: boolean, n?: number, acc?: number, misses?: number }} Play
  * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, nXp: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, prevAt: number, prevXp: number, perPlay: number, perMinute: number }} MapStats
  */
 

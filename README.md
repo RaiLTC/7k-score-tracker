@@ -43,9 +43,10 @@ npm run check   # typecheck, lint, test, build
 | `src/index.ts` | What oss!idle calls: `mount`, `unmount` |
 | `src/Tracker.ts` | The add-on: window, shortcut, loading |
 | `src/settings.ts` | What players can set (the shortcut, the last view) |
-| `src/rules/` | The rules, tested in `test/`: which plays are 7K and ranking maps (`logic.js`), strain per play (`strain.js`), the bar, mindblock and the plays to Peak (`peak.js`), outdated plays (`outdated.js`) |
+| `src/rules/` | The rules, tested in `test/`: which plays are 7K and ranking maps (`logic.js`), strain per play (`strain.js`), the bar, mindblock and the plays to Peak (`peak.js`), outdated plays (`outdated.js`), base XP (`base.js`) |
 | `src/game/data.ts` | Reading plays, the game's API, the cached map catalogue, and what's kept on your computer |
 | `src/game/surprise.ts` | The maps ADHD Mode's accuracy surprise has played for |
+| `src/game/shared.ts` | Shared: sending plays' base XP in batches, and the map table, from the Shared server (7k-shared-server, a Cloudflare Worker) |
 | `src/ui/view.ts` | The lists as HTML |
 | `src/ui/text.ts` | Every word players see |
 | `src/ui/genz.ts` | ADHD Mode: its animations and sounds |
