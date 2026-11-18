@@ -558,8 +558,8 @@ export class Tracker extends Addon {
 			$('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
 			$('[data-stat="pool"]').textContent = st ? st.plays.toLocaleString('en-US') : '–';
 			$('[data-stat="players"]').textContent = st ? st.players.toLocaleString('en-US') : '–';
-			// the next batch: what everyone shared in the past 5 minutes
-			$('[data-stat="next"]').textContent = st ? st.last5.toLocaleString('en-US') : '–';
+			// the next batch: what everyone shared in the past 10 minutes
+			$('[data-stat="next"]').textContent = st ? st.last10.toLocaleString('en-US') : '–';
 			$('[data-stat="rate"]').textContent = st ? (st.lastHour / 60).toFixed(st.lastHour < 600 ? 1 : 0) : '–';
 		};
 		const refreshStats = () => void fetchStats().then(showStats);
@@ -576,15 +576,15 @@ export class Tracker extends Addon {
 			const n = await sendBatch(list);
 			waiting = waitingCount(list);
 			if (n && !win.hidden) showSent(n);
-			// your plays are in now: the table again
-			if (n) void loadShared(true);
 			showPool();
 			if (n) $('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
 		};
-		// every few seconds while the Shared tab shows: the countdown; every 5 minutes, open or not: the batch
+		// every second while the Shared tab shows: the countdown; every 30 seconds there: the numbers, and the table once
+		// it's 10 minutes old; every 10 minutes, open or not: the batch
 		this.own(((t) => () => window.clearInterval(t))(window.setInterval(() => {
+			if (!win.hidden && page === 'shared' && Date.now() % 30e3 < 1000) { refreshStats(); void loadShared(); }
 			if (this.settings.share !== 'on') return;
-			if (!win.hidden && page === 'shared') { showPool(); if (Date.now() % 60e3 < 1000) refreshStats(); }
+			if (!win.hidden && page === 'shared') showPool();
 			if (Date.now() >= nextSendAt()) {
 				if (plays && !win.hidden) void shareNow(plays);
 				else void recent7k(gameApi()).then((r) => shareNow(r), () => undefined);

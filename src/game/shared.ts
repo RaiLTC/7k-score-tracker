@@ -1,8 +1,8 @@
 // Shared: each map's base XP from everyone's plays (the 7K Shared server, a Cloudflare Worker: 7k-shared-server).
 // - Players who agree send their new plays' base XP (the XP with their bonuses taken back out, rules/base.js) in
-//   batches, every 5 minutes, whatever is waiting then. A batch that can't be sent waits for the next time; nothing
+//   batches, every 10 minutes, whatever is waiting then. A batch that can't be sent waits for the next time; nothing
 //   from before they agreed (or from while sharing was off) is ever sent.
-// - Everyone, sharing or not, gets the map table, kept on this computer and fetched again once it's 5 minutes old
+// - Everyone, sharing or not, gets the map table, kept on this computer and fetched again once it's 10 minutes old (the server saves it again every 10 minutes)
 //   (or right after a batch is sent, or on Refresh).
 // Kept on this computer: a random player id (made here; it's all the server knows about a player), how far sending
 // has got, and the last table.
@@ -15,9 +15,9 @@ export const SHARED_URL = 'https://7k-shared.7k-shared-database.workers.dev';
 
 const ID_KEY = '7k-score-tracker:shared-id', SENT_KEY = '7k-score-tracker:shared-sent', TABLE_KEY = '7k-score-tracker:shared-table';
 /** What's waiting is sent this often (a batch that failed waits for the next time too). */
-export const SEND_EVERY = 5 * 60e3;
+export const SEND_EVERY = 10 * 60e3;
 /** The table kept on this computer is fetched again once it's this old (and after a batch is sent). */
-const TABLE_AGE = 5 * 60e3;
+const TABLE_AGE = 10 * 60e3;
 
 /** A map and rate's shared base XP, as the server sends it. */
 /** `mapPlayers`: the map's players over all its rates, each counted once. */
@@ -83,7 +83,7 @@ export const waitingCount = (plays: Play[]): number => waitingIn(plays).length;
 export const nextSendAt = (): number => sentState().tryAt + SEND_EVERY;
 
 /**
- * Sends the plays waiting, when the next batch is due (every 5 minutes); how many were sent.
+ * Sends the plays waiting, when the next batch is due (every 10 minutes); how many were sent.
  * @param plays the newest plays, newest first (as read)
  */
 export const sendBatch = async (plays: Play[]): Promise<number> => {
@@ -91,7 +91,7 @@ export const sendBatch = async (plays: Play[]): Promise<number> => {
 	if (!s.since || now < nextSendAt() || sharedTable()?.sharing === false) return 0;
 	const game = gameVersion();
 	if (!game) return 0;
-	// due: the next check is 5 minutes from now, whether anything goes or not
+	// due: the next check is 10 minutes from now, whether anything goes or not
 	s.tryAt = now;
 	saveSent();
 	const waiting = waitingIn(plays);
@@ -123,9 +123,16 @@ export const fetchTable = async (force = false): Promise<SharedTable | null> => 
 	const kept = sharedTable(), game = gameVersion();
 	if (!force && kept && kept.game === game && Date.now() - kept.fetched < TABLE_AGE) return kept;
 	try {
-		const res = await fetch(`${SHARED_URL}/v1/maps${game ? `?game=${encodeURIComponent(game)}` : ''}`, { cache: 'no-store' });
+		// with the kept table's time: when it hasn't changed, nothing is downloaded
+		const since = kept && kept.game === game ? kept.made : '';
+		const res = await fetch(`${SHARED_URL}/v1/maps?game=${encodeURIComponent(game ?? '')}${since ? `&since=${encodeURIComponent(since)}` : ''}`, { cache: 'no-store' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		const body = await res.json() as Omit<SharedTable, 'fetched'>;
+		const body = await res.json() as Omit<SharedTable, 'fetched'> & { same?: boolean };
+		if (body.same && kept) {
+			const same = { ...kept, sharing: body.sharing, fetched: Date.now() };
+			write(TABLE_KEY, same);
+			return same;
+		}
 		const table = { ...body, fetched: Date.now() };
 		write(TABLE_KEY, table);
 		return table;
@@ -134,18 +141,18 @@ export const fetchTable = async (force = false): Promise<SharedTable | null> => 
 	}
 };
 
-/** The pool's numbers: every play shared, the players, and how many arrived in the past hour and 5 minutes. */
-export type SharedStats = { plays: number, players: number, lastHour: number, last5: number };
+/** The pool's numbers: every play shared, the players, and how many arrived in the past hour and 10 minutes. */
+export type SharedStats = { plays: number, players: number, lastHour: number, last10: number };
 let stats: { at: number, value: SharedStats | null } = { at: 0, value: null };
-/** The pool's numbers, asked for again at most every minute (the last ones when the server can't be reached). */
+/** The pool's numbers, asked for again at most every 30 seconds (the last ones when the server can't be reached). */
 export const fetchStats = async (): Promise<SharedStats | null> => {
-	if (Date.now() - stats.at < 60e3) return stats.value;
+	if (Date.now() - stats.at < 25e3) return stats.value;
 	stats.at = Date.now();
 	try {
 		const res = await fetch(`${SHARED_URL}/v1/health`, { cache: 'no-store' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const body = await res.json() as Partial<SharedStats>;
-		stats.value = { plays: num(body.plays), players: num(body.players), lastHour: num(body.lastHour), last5: num(body.last5) };
+		stats.value = { plays: num(body.plays), players: num(body.players), lastHour: num(body.lastHour), last10: num(body.last10) };
 	} catch { /* the last ones */ }
 	return stats.value;
 };

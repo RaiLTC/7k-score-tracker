@@ -2,6 +2,14 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.4] - 2026-11-18
+
+### Changed
+
+- Send shared plays every 10 minutes, and show the past 10 minutes in Next batch
+- Refresh Shared's statistics every 30 seconds while it's open
+- Download the Shared table only while Shared is open, and only when it changed
+
 ## [1.2.3] - 2026-11-18
 
 ### Changed
