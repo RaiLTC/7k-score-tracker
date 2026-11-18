@@ -261,8 +261,8 @@ export const sharedSongs = (rows: SharedRow[]): SharedSong[] => {
  *  (slowest first), each opening to its card (base XP per skill for a play). A level with only one entry is skipped:
  *  a song with one difficulty opens to its rates, a difficulty with one rate to its card. Songs and difficulties show
  *  everything inside them combined. */
-export const sharedHtml = (songs: SharedSong[], unit: Unit, as: SkillsAs, empty: string): string => {
-	if (!songs.length) return `<div class="empty">${esc(empty)}</div>`;
+export const sharedHtml = (songs: SharedSong[], unit: Unit, as: SkillsAs, empty: string, from = 0, count = Infinity): string => {
+	if (!songs.length) return from ? '' :  `<div class="empty">${esc(empty)}</div>`;
 	const c = TEXT.cols, grade = gradeOf(songs.map((g) => g.best.perMinute));
 	const cells = (name: string, rate: string, players: number, plays: number, best: SharedRow, you: number) => `
 		<span class="map">${name}</span>
@@ -273,7 +273,9 @@ export const sharedHtml = (songs: SharedSong[], unit: Unit, as: SkillsAs, empty:
 		<span class="muted">${you > 0 ? rateXp(you, unit) : '–'}</span>
 		${skillsCell(best.base, as)}`;
 	const card = (y: SharedRow) => breakdown(y.base, 1, TEXT.sharedCard(y.players, y.plays), y.you > 0 ? y.map : 0);
-	return `<div class="row head-row"><span>${c.map}</span><span>${c.rate}</span><span>${c.players}</span><span>${c.plays}</span><span>${TEXT.sharedBase(TEXT.units[unit] ?? '')}</span><span>${TEXT.sharedYou(TEXT.units[unit] ?? '')}</span><span>${c.skills}</span></div>${songs.map((g) => {
+	// the header with the first batch only (later batches are added under it while scrolling)
+	const header = from ? '' : `<div class="row head-row"><span>${c.map}</span><span>${c.rate}</span><span>${c.players}</span><span>${c.plays}</span><span>${TEXT.sharedBase(TEXT.units[unit] ?? '')}</span><span>${TEXT.sharedYou(TEXT.units[unit] ?? '')}</span><span>${c.skills}</span></div>`;
+	return `${header}${songs.slice(from, from + count).map((g) => {
 		// the song, and who mapped it under it
 		const i = g.info, name = i ? `<span>${i.artist ? `${esc(i.artist)} - ` : ''}${esc(i.title)}</span>${i.mapper ? `<span class="muted">${esc(TEXT.sharedMappedBy(i.mapper))}</span>` : ''}` : `<span>${esc(TEXT.map(g.best.map))}</span>`;
 		const rateRow = (key: string, y: SharedRow) => `<div ${row(`${key}@${y.rate}`, '', 'sub sub2')}>${cells(`<span class="muted">${esc(TEXT.sharedRate(y.rate))}</span>`, rateText(y.rate), y.players, y.plays, y, y.you)}</div>${card(y)}`;

@@ -15,7 +15,7 @@ import { arrowsOf } from './rules/strain.js';
 import styles from './ui/styles.css';
 import { CHANGELOG } from './ui/changelog.js';
 import { TEXT } from './ui/text.js';
-import { allTimeHtml, bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, PER_MINUTE, playsHtml, sharedHtml, type SharedRow, sharedSongs, showStrainAs } from './ui/view.js';
+import { allTimeHtml, bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, PER_MINUTE, playsHtml, sharedHtml, type SharedRow, type SharedSong, sharedSongs, showStrainAs } from './ui/view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings' | 'debug' | 'changelog';
@@ -507,6 +507,15 @@ export class Tracker extends Addon {
 			} finally { sharedState.loading = false; }
 			if (page === 'shared') renderLists();
 		};
+		// Shared draws its first 50 songs, and the next 50 as you scroll near the end (as Recent plays does)
+		let sharedSongsList: SharedSong[] = [], sharedShown = PLAYS_BATCH;
+		this.on(sharedList, 'scroll', () => {
+			if (page !== 'shared' || sharedShown >= sharedSongsList.length || sharedList.scrollTop + sharedList.clientHeight < sharedList.scrollHeight - 300) return;
+			const s = this.settings;
+			sharedList.insertAdjacentHTML('beforeend', sharedHtml(sharedSongsList, s.unit, s.skillsAs, '', sharedShown, PLAYS_BATCH));
+			sharedShown += PLAYS_BATCH;
+			genz.added(sharedList);
+		});
 		const drawShared = () => {
 			const s = this.settings, { table, infos } = sharedState, status = $('[data-shared-status]');
 			if (!table) { sharedList.innerHTML = messageHtml(sharedState.loading ? TEXT.sharedLoading : TEXT.sharedOffline, !sharedState.loading); status.textContent = ''; return; }
@@ -516,7 +525,8 @@ export class Tracker extends Addon {
 				.filter((m) => !searching(query) || fitsSearch(query, m.info, m.map, m.rate, m.base));
 			// songs, their difficulties, each difficulty's rates (the Skills box's focus and hiding go by each rate's skills)
 			const songs = sharedSongs(shownSkills(rows.map((r) => ({ ...r, gains: r.base }))));
-			sharedList.innerHTML = sharedHtml(songs, s.unit, s.skillsAs, searching(query) ? TEXT.noMatch : TEXT.sharedNone);
+			sharedSongsList = songs;
+			sharedList.innerHTML = sharedHtml(songs, s.unit, s.skillsAs, searching(query) ? TEXT.noMatch : TEXT.sharedNone, 0, sharedShown);
 			status.textContent = TEXT.sharedUpdated(agoText(Date.now() - table.fetched), songs.length);
 			showPool();
 		};
@@ -831,7 +841,7 @@ export class Tracker extends Addon {
 			window.clearTimeout(searchTimer);
 			searchTimer = window.setTimeout(() => {
 				query = parseSearch(searchBox.value, Date.now(), this.settings.advanced === 'on');
-				playsShown = PLAYS_BATCH;
+				playsShown = sharedShown = PLAYS_BATCH;
 				renderLists();
 				if (page === 'debug') void drawDebug();
 			}, 150);

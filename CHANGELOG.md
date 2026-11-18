@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.3] - 2026-11-18
+
+### Changed
+
+- Load Shared 50 songs at a time as you scroll, so it opens faster
+
 ## [1.2.2] - 2026-11-18
 
 ### Added
