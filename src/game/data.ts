@@ -306,7 +306,7 @@ const API_LOG_KEY = 'api-log';
 /** How many API calls the debug view keeps (newest first). */
 const API_LOG_KEEP = 100;
 /** How many plays the debug view shows (the newest 7K ones), and how many of your newest plays it reads to find them. */
-const DEBUG_PLAYS = 50, DEBUG_READ = 500;
+const DEBUG_PLAYS = 100, DEBUG_READ = 500;
 type ApiCall = { at: number, call: string, ms: number, answer?: unknown, error?: string };
 let apiLog: Promise<ApiCall[]> | undefined;
 

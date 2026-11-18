@@ -11,7 +11,7 @@ export const TEXT = {
 	changelog: 'Changelog',
 	changelogNote: 'What changed in each version',
 	debugNote: 'What the tracker reads and saves, to copy into a bug report',
-	debugBoxes: { api: 'API calls', strain: 'Strain', catalog: 'Map catalogue', plays: 'Recent plays (50)', base: 'Base XP (newest 30 plays)', multipliers: 'XP multipliers', settings: 'Settings', addon: 'Add-on' } as Record<string, string>,
+	debugBoxes: { api: 'API calls', strain: 'Strain', catalog: 'Map catalogue', plays: 'Recent Plays (100)', base: 'Recent Plays (Base XP) (100)', multipliers: 'XP multipliers', settings: 'Settings', addon: 'Add-on' } as Record<string, string>,
 	copy: 'Copy',
 	copied: 'Copied',
 	copyAll: 'Copy all',

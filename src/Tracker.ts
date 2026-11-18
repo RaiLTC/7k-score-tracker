@@ -30,6 +30,8 @@ const SUGGEST_COUNT = 5;
 const REFRESH_COOLDOWN = 3000;
 /** How many Recent plays rows are drawn at a time. */
 const PLAYS_BATCH = 50;
+/** Debug: how many plays its two lists show (Recent Plays, and their base XP). */
+const DEBUG_LIST = 100;
 
 // Tabler Icons (MIT): bug, outline
 const BUG = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9v-1a3 3 0 0 1 6 0v1"/><path d="M8 9h8a6 6 0 0 1 1 3v3a5 5 0 0 1 -10 0v-3a6 6 0 0 1 1 -3"/><path d="M3 13l4 0"/><path d="M17 13l4 0"/><path d="M12 20l0 -6"/><path d="M4 19l3.35 -2"/><path d="M20 19l-3.35 -2"/><path d="M4 7l3.75 2.4"/><path d="M20 7l-3.75 2.4"/></svg>';
@@ -640,8 +642,9 @@ export class Tracker extends Addon {
 			const keep = searching(query) ? (info: Play['info'], beatmapId: number, rate: number, gains: Play['gains'], at: number) => playedIn(query, at) && fitsSearch(query, info, beatmapId, rate, gains) : undefined;
 			try { data = await debugData(keep); } catch (e) { data = { error: String(e) }; }
 			const { plays: list, character, ...rest } = data;
-			// each recent play's base XP (Shared), or why it isn't used
-			const base = plays ? basePlays(plays).slice(0, 30).map((b) => ({ playedAt: new Date(b.play.playedAt).toISOString(), beatmapId: b.play.beatmapId, map: b.play.info ? `${b.play.info.title} - ${b.play.info.difficulty}` : 'not in the catalogue', rate: b.play.rate, gains: b.play.gains, ...('base' in b ? { base: b.base } : { skip: b.skip }) })) : [];
+			// each recent play's base XP (Shared), or why it isn't used: a line per play, as Recent Plays
+			const baseRows = plays ? basePlays(plays).slice(0, DEBUG_LIST) : [];
+			const base = baseRows.map((b) => ({ playedAt: new Date(b.play.playedAt).toISOString(), beatmapId: b.play.beatmapId, map: b.play.info ? `${b.play.info.title} - ${b.play.info.difficulty}` : 'not in the catalogue', rate: b.play.rate, gains: b.play.gains, ...('base' in b ? { base: b.base } : { skip: b.skip }) }));
 			const parts: [string, unknown][] = [...Object.entries(rest), ['plays', list], ['base', base], ['settings', this.settings],
 				['addon', { version: this.meta.version, character, userAgent: navigator.userAgent, now: new Date().toISOString() }]];
 			debugParts = parts;
@@ -662,16 +665,19 @@ export class Tracker extends Addon {
 				return `<div class="dbg-pick"><input type="checkbox" data-pick="${key}" aria-label="${label}"${ticked.has(key) ? ' checked' : ''}>${html}</div>`;
 			};
 			body.innerHTML = parts.map(([k, v], i) => {
-				if (!Array.isArray(v) || (k !== 'plays' && k !== 'api')) return box(k, textBlock(v), i);
+				if (!Array.isArray(v) || (k !== 'plays' && k !== 'api' && k !== 'base')) return box(k, textBlock(v), i);
 				const items = (v as Record<string, unknown>[]).map((x, j) => {
 					if (k === 'api') {
 						const key = `api:${String(x.atMs)}:${v.length - j}`;
 						return pick(key, x, TEXT.selectCall, line(key, `${local(x.atMs)}   ${String(x.call)}   ${x.error ? `failed: ${String(x.error)}` : `${String(x.ms)} ms`}`, x));
 					}
-					const known = typeof x.map === 'string' ? undefined : x.map as { title?: string, difficulty?: string, mapper?: string };
+					// a base XP line reads its play's map from the play itself (its copy keeps the short form)
+					const of = k === 'base' ? baseRows[j]!.play : undefined;
+					const known = of ? of.info : typeof x.map === 'string' ? undefined : x.map as { title?: string, difficulty?: string, mapper?: string };
 					const name = known ? `${known.title ?? ''} - ${known.difficulty ?? ''}` : `#${String(x.beatmapId)}`;
-					const key = `play:${String(x.playedAtMs)}`;
-					return pick(key, x, TEXT.selectPlay, line(key, `${local(x.playedAtMs)}   ${name}`, x, known?.mapper ? ` <span class="mapper">${esc(TEXT.mappedBy(known.mapper))}</span>` : ''));
+					const at = of ? of.playedAt : x.playedAtMs;
+					const key = `${k === 'base' ? 'base' : 'play'}:${String(at)}`;
+					return pick(key, x, TEXT.selectPlay, line(key, `${local(at)}   ${name}`, x, known?.mapper ? ` <span class="mapper">${esc(TEXT.mappedBy(known.mapper))}</span>` : ''));
 				}).join('');
 				// a tick per line and Select all; Copy copies the ticked ones (all when none is ticked)
 				const picker = `<div class="dbg-select"><label><input type="checkbox" data-pick-all> ${TEXT.selectAll}</label><span class="muted" data-picked></span></div>`;

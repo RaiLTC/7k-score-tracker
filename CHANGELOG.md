@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.6] - 2026-11-18
+
+### Changed
+
+- Show each play's base XP in Debug as a list like Recent Plays, to open, select and copy
+- Show the newest 100 plays in both of Debug's play lists
+
 ## [1.2.5] - 2026-11-18
 
 ### Changed
