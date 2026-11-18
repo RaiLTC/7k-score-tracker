@@ -133,7 +133,7 @@ export class Tracker extends Addon {
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
 						<div class="suggest-body" data-suggest>${messageHtml(TEXT.suggestFirst)}</div></section>
-					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-pool" data-shared-pool hidden></span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span></div><div class="list" data-list="shared"></div></section>
+					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span></div><div class="list" data-list="shared"></div></section>
 					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="advanced" aria-pressed="false" title="${TEXT.advancedHelp}">${TEXT.advanced}</button><button type="button" class="btn small" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
 					<section class="card changelog" hidden><div class="card-head"><span class="title">${TEXT.changelog}</span><span class="muted">${TEXT.changelogNote}</span></div><div class="changelog-body" data-changelog></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
@@ -557,12 +557,14 @@ export class Tracker extends Addon {
 			$('[data-stat="rate"]').textContent = st ? (st.lastHour / 60).toFixed(st.lastHour < 600 ? 1 : 0) : '–';
 		};
 		const refreshStats = () => void fetchStats().then(showStats);
+		// your next batch (while sharing): how many plays wait to go, and a countdown to when they go
 		const showPool = () => {
-			const pool = $('[data-shared-pool]');
-			pool.hidden = this.settings.share !== 'on';
-			if (pool.hidden) return;
-			const left = Math.max(0, nextSendAt() - Date.now()), sec = Math.ceil(left / 1000);
-			pool.textContent = TEXT.sharedWaiting(waiting, `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
+			const box = $('[data-next-batch]');
+			box.hidden = this.settings.share !== 'on';
+			if (box.hidden) return;
+			const sec = Math.ceil(Math.max(0, nextSendAt() - Date.now()) / 1000);
+			$('[data-stat="next"]').textContent = String(waiting);
+			$('[data-stat="next-in"]').textContent = TEXT.statNextIn(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
 		};
 		/** Sends what's waiting when a batch is due, then counts what's left (and shows the note). */
 		const shareNow = async (list: Play[]) => {
@@ -725,7 +727,9 @@ export class Tracker extends Addon {
 				// another)
 				if (this.settings.share === 'on') void shareNow(result);
 				const found = surpriseIn(result);
-				if (found) {
+				// never on Shared: that map's surprise is skipped for good
+				if (found && page === 'shared') noteSurprise(found.beatmapId);
+				else if (found) {
 					if (page !== 'plays' && page !== 'best') { showPage('plays'); playsList.scrollTop = 0; }
 					if (genz.surprise(found.beatmapId, TEXT.accuracyFound)) noteSurprise(found.beatmapId);
 				}

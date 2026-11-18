@@ -196,13 +196,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Shared: each map's base XP from everyone's plays */
 .shared .row { grid-template-columns: minmax(0, 1fr) repeat(3, 56px) 72px 72px 124px; }
 .shared .row > :nth-child(n+2):nth-child(-n+6) { text-align: center; }
-.shared .card-head .shared-pool { margin-left: auto; color: var(--text); }
 .shared .card-head .shared-status { margin-left: auto; }
-.shared .card-head .shared-pool:not([hidden]) + .shared-status { margin-left: 12px; }
 /* Shared's statistics bar */
 .shared-stats { display: flex; gap: 8px; margin: 0 0 8px; }
 .shared-stats span { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; color: var(--muted); background: color-mix(in srgb, var(--text) 3%, transparent); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; }
 .shared-stats b { color: var(--text); font-size: 13px; font-weight: 600; }
+.shared-stats [hidden] { display: none; }
+/* the next batch: on the right, its countdown after the count */
+.shared-stats [data-next-batch] { margin-left: auto; }
+.shared-stats i { font-style: normal; font-variant-numeric: tabular-nums; }
 .shared .detail.rates-list { padding: 0; }
 .shared .row.sub { min-height: 32px; border-top: 0; font-size: 12px; contain-intrinsic-size: auto 32px; }
 /* the sharing warning: in the middle of the window, over the Shared tab (blurred, not clickable) until answered */
