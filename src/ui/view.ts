@@ -1,7 +1,7 @@
 // The tracker's lists as HTML: a row per play or per map, each followed by its (closed) XP-per-skill breakdown.
 // Every text that comes from data is escaped.
 
-import { type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from '../rules/logic.js';
+import { type BestEver, type Gains, type MapInfo, type MapStats, type Play, SKILLS_7K, agoText, bestBySkill, num, totalOf, xpText } from '../rules/logic.js';
 import { strainOf } from '../game/data.js';
 import type { SkillsAs, StrainAs, Unit } from '../settings.js';
 import { arrowsOf } from '../rules/strain.js';
@@ -14,7 +14,7 @@ const rateText = (rate: number) => String(num(rate) || 1);
 const skillName = (sk: string) => TEXT.skills[sk] ?? sk;
 /** The share a skill needs to show in the Top skills column. */
 const TOP_SHARE = 0.15;
-const PER_MINUTE: Record<Unit, number> = { h: 60, m: 1, s: 1 / 60 };
+export const PER_MINUTE: Record<Unit, number> = { h: 60, m: 1, s: 1 / 60 };
 const rateXp = (perMinute: number, unit: Unit) => {
 	const v = perMinute * PER_MINUTE[unit];
 	return v < 10 ? v.toFixed(v < 1 ? 2 : 1) : xpText(v);
@@ -202,6 +202,29 @@ export const bestHtml = (maps: MapStats[], unit: Unit, as: SkillsAs, since = 0, 
 		${strainCells(m.lastAt, arrowsOnly, vOf?.(m))}
 		${skillsCell(m.gains, as)}
 	</div>${breakdown(m.last, 1, m.n > 1 ? TEXT.latest : '', m.beatmapId)}`)(out(m))).join('')}`;
+};
+
+/** All Time Highest (Effective Maps' button): each map's best play ever, by XP per time; a map played at more than one
+ *  rate opens to a row per rate (slowest first), each opening to its play's XP, as in Skills. */
+export const allTimeHtml = (maps: BestEver[], unit: Unit, as: SkillsAs, empty: string = TEXT.noBest): string => {
+	if (!maps.length) return `<div class="empty">${esc(empty)}</div>`;
+	const c = TEXT.cols, now = Date.now(), grade = gradeOf(maps.map((m) => m.perMinute));
+	const cells = (m: MapStats, folder: number) => `
+		<span class="muted">${agoText(now - m.lastAt)}</span>
+		${mapCell(m.info, m.beatmapId)}
+		<span class="muted">${folder ? `<span class="rates">+${folder}</span>` : rateText(m.rate)}</span>
+		<span class="muted">${m.n}</span>
+		${xpCell(m.lastXp, 0)}
+		${rateCell(m.perMinute, unit, grade)}
+		${strainCells(m.lastAt, true)}
+		${skillsCell(m.last, as)}`;
+	const info = (m: MapStats) => breakdown(m.last, 1, '', m.beatmapId);
+	return `<div class="row head-row"><span>${c.when}</span><span>${c.map}</span><span>${c.rate}</span><span>${c.plays}</span><span>${c.totalXp}</span><span>${TEXT.units[unit]}</span><span>${c.strain}</span><span>${c.skills}</span></div>${maps.map((m) => {
+		const key = `${m.beatmapId}@${m.rate}`, play = (y: MapStats) => `${y.lastAt}:${y.beatmapId}`;
+		if (!m.others.length) return `<div ${row(key, '', '', play(m))}>${cells(m, 0)}</div>${info(m)}`;
+		const rates = [m, ...m.others].sort((a, b) => a.rate - b.rate);
+		return `<div ${row(key, '', '', play(m))}>${cells(m, m.others.length)}</div><div class="detail rates-list" hidden>${rates.map((y) => `<div ${row(`${key}>${y.rate}`, '', 'sub', play(y))}>${cells(y, 0)}</div>${info(y)}`).join('')}</div>`;
+	}).join('')}`;
 };
 
 /** The Skills tab: for each skill, the maps that gave it the most XP per minute of play; a map not played since

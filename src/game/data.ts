@@ -15,7 +15,9 @@ import { TEXT } from '../ui/text.js';
 
 const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
 /** How many of your newest plays are read: the tracker shows the 7K ones among them. */
-const READ_PLAYS = 2000;
+/** The newest 7K plays read (4K plays don't count), reading the database this many rows at a time, at most
+ *  READ_BATCHES times. */
+const READ_PLAYS = 2000, READ_BATCHES = 20;
 const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 20000;
 const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v3';
 /** Catalogues kept before, without what's kept now: removed once the new one is saved. */
@@ -163,44 +165,79 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 	}
 	if (!id) throw new TrackerError(TEXT.errors.noCharacter);
 	playingAs = id;
-	const rows = await rowsOf(
-		`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, s.pp AS pp, x.gains AS gains
-		 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
-		 WHERE s.characterId = ? ORDER BY s.playedAt DESC LIMIT ?`, [id, READ_PLAYS]);
-	if (rows === null) throw new TrackerError(TEXT.errors.noDatabase);
-
-	const parsed = rows.map((r) => ({ r, gains: parseGains(r.gains) }));
-	// maps that can make the catalogue look out of date: ranked plays (unranked maps are never in it) that gave 7K
-	// skills, or no XP at all (so their mode is unknown)
-	const played = [...new Set(parsed.filter((p) => !num(p.r.unranked) && (!totalOf(p.gains) || ONLY_7K.some((sk) => num(p.gains[sk]) > 0))).map((p) => num(p.r.beatmapId)))];
-	const cat = await mapCatalog(played);
+	// newest first, a batch at a time, until READ_PLAYS 7K plays are found (4K plays are read, then left out)
 	const out: Play[] = [];
-	for (const { r, gains } of parsed) {
-		const info = infoOf(cat, num(r.beatmapId));
-		if (!is7kPlay(info, gains)) continue;
-		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp), xpSaved: r.gains != null });
+	let cat: Catalog | undefined;
+	for (let batch = 0; batch < READ_BATCHES && out.length < READ_PLAYS; batch++) {
+		const rows = await rowsOf(
+			`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, s.pp AS pp, x.gains AS gains
+			 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
+			 WHERE s.characterId = ? ORDER BY s.playedAt DESC, s.id DESC LIMIT ? OFFSET ?`, [id, READ_PLAYS, batch * READ_PLAYS]);
+		if (rows === null) throw new TrackerError(TEXT.errors.noDatabase);
+		const parsed = rows.map((r) => ({ r, gains: parseGains(r.gains) }));
+		// the first batch only: maps that can make the catalogue look out of date (ranked plays, as unranked maps are
+		// never in it, that gave 7K skills or no XP at all, so their mode is unknown)
+		cat ??= await mapCatalog([...new Set(parsed.filter((p) => !num(p.r.unranked) && (!totalOf(p.gains) || ONLY_7K.some((sk) => num(p.gains[sk]) > 0))).map((p) => num(p.r.beatmapId)))]);
+		for (const { r, gains } of parsed) {
+			const info = infoOf(cat, num(r.beatmapId));
+			if (!is7kPlay(info, gains)) continue;
+			out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp), xpSaved: r.gains != null });
+		}
+		if (rows.length < READ_PLAYS) break;
 	}
+	return out.slice(0, READ_PLAYS);
+};
+
+/** Where All Time Highest's plays came from, for the debug view. */
+let everFrom: Record<string, unknown> = { source: 'not read yet' };
+/**
+ * All Time Highest: every 7K map's best play at each rate, however old (not only the plays read above), with `n` the
+ * plays at that rate. The database finds each best (the most XP in all: at one map and rate, the most a minute too)
+ * with its JSON functions; null when it can't (then the newest plays are used instead).
+ */
+export const allTime7k = async (): Promise<Play[] | null> => {
+	const id = playingAs || characterId;
+	if (!id) return null;
+	let rows: Record<string, SqlValue>[] | null;
+	try {
+		rows = await rowsOf(
+			`SELECT s.beatmapId AS beatmapId, s.rate AS rate, s.playedAt AS playedAt, s.mods AS mods, s.pp AS pp, x.gains AS gains,
+			 MAX((SELECT TOTAL(value) FROM json_each(x.gains))) AS total, COUNT(*) AS n
+			 FROM score s JOIN score_xp x ON x.scoreId = s.id
+			 WHERE s.characterId = ? GROUP BY s.beatmapId, s.rate`, [id]);
+	} catch (e) {
+		everFrom = { source: 'your newest plays', why: `the database couldn't find the best plays: ${String(e)}` };
+		return null;
+	}
+	if (rows === null) return null;
+	const cat = await mapCatalog([]);
+	const out: Play[] = [];
+	for (const r of rows) {
+		const gains = parseGains(r.gains), info = infoOf(cat, num(r.beatmapId));
+		if (!is7kPlay(info, gains)) continue;
+		out.push({ beatmapId: num(r.beatmapId), playedAt: num(r.playedAt), rate: num(r.rate) || 1, mods: String(r.mods ?? ''), gains, info, total: totalOf(gains), pp: num(r.pp), xpSaved: true, n: num(r.n) || 1 });
+	}
+	everFrom = { source: 'the database, all plays', maps: out.length };
 	return out;
 };
 
 // ---- your playlist ----
 
 /**
- * Saves maps (best first) into the add-on's own game playlist, named `name`, and returns its id. The first save makes
- * the playlist; later saves replace its maps. Only that playlist is ever written: the others are never touched.
+ * Saves maps (best first) into the game playlist named `name` (7K-ST: …), and returns its id: a playlist of that name
+ * has its maps replaced, else a new one is made. Only that playlist is ever written: the others are never touched.
  */
-export const savePlaylist = async (id: number, name: string, maps: { beatmapId: number, rate: number, repeat?: number }[]): Promise<number> => {
+export const savePlaylist = async (name: string, maps: { beatmapId: number, rate: number, repeat?: number }[]): Promise<number> => {
 	if (!playingAs) throw new TrackerError(TEXT.errors.noCharacter);
-	let playlist = id ? num(await gameDb.value('SELECT id FROM playlist WHERE id = ? AND characterId = ?', [id, playingAs])) : 0;
+	let playlist = num(await gameDb.value('SELECT MAX(id) FROM playlist WHERE name = ? AND characterId = ?', [name, playingAs]));
 	if (!playlist) {
 		const at = Date.now();
 		await gameDb.run('INSERT INTO playlist (name, createdAt, characterId) VALUES (?, ?, ?)', [name, at, playingAs]);
 		playlist = num(await gameDb.value('SELECT MAX(id) FROM playlist WHERE name = ? AND createdAt = ? AND characterId = ?', [name, at, playingAs]));
 		if (!playlist) throw new Error('playlist: not created');
 	}
-	// one save: the name, then the maps replaced
+	// one save: the maps replaced
 	await gameDb.batch([
-		{ sql: 'UPDATE playlist SET name = ? WHERE id = ?', params: [name, playlist] },
 		{ sql: 'DELETE FROM playlist_entry WHERE playlistId = ?', params: [playlist] },
 		...maps.map((m, i) => ({
 			sql: "INSERT INTO playlist_entry (playlistId, beatmapId, rate, mods, position, repeat) VALUES (?, ?, ?, '', ?, ?)",
@@ -295,6 +332,7 @@ export const debugData = async (keep?: (info: MapInfo | undefined, beatmapId: nu
 	return {
 		api: (await apiLogOf()).map((c) => ({ ...c, at: time(c.at), atMs: c.at })),
 		levels: levelHistory(),
+		allTime: everFrom,
 		strain: { game: s.game && { minutes: s.game[0], at: time(s.game[1]) }, prior: s.prior && { minutes: s.prior[0], at: time(s.prior[1]) }, waits: s.waits ?? 0, playsNoted: Object.keys(s.plays).length },
 		catalog: { maps: Object.keys(cat.maps).length, fetchedAt: time(cat.at), triedAt: time(cat.tried), missing: cat.missing ?? {} },
 		character: id,

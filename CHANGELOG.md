@@ -2,6 +2,18 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.10] - 2026-11-18
+
+### Added
+
+- Add All Time Highest to Effective Maps: each map's best play ever, by XP per time, with other rates in a folder
+- Save up to a set number of All Time Highest maps between a Min and Max XP as a playlist
+
+### Changed
+
+- Name playlists "7K-ST: …", and save each name to its own playlist
+- Read your newest 2000 7K plays, without counting 4K plays toward that limit
+
 ## [1.1.9] - 2026-11-17
 
 ### Fixed

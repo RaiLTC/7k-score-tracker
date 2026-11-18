@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agoText, bestBySkill, bestMaps, dayOf, is7kPlay, parseGains, parseSearch, playedIn, searching, timeOf, totalOf, xpText } from '../src/rules/logic.js';
+import { agoText, allTimeBest, bestBySkill, bestMaps, dayOf, is7kPlay, parseGains, parseSearch, playedIn, searching, timeOf, totalOf, xpText } from '../src/rules/logic.js';
 import { arrowsOf, restedStrain, strainPerMinute, strainWhenSet } from '../src/rules/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
@@ -185,4 +185,19 @@ test('time tags: plays between ts and te, on a day or on any day, past midnight 
 	assert.equal(playedIn(parseSearch('day=yesterday', now), at(16, 0)), true);
 	// a tag that can't be read is a word
 	assert.deepEqual(parseSearch('ts=soon', now).words, ['ts=soon']);
+});
+
+test('All Time Highest: each map\'s best play ever by XP a minute, other rates in its folder', () => {
+	const at = (p, t, rate = 1) => ({ ...p, playedAt: t, rate });
+	const ever = allTimeBest([
+		at(play(1, { speed: 600 }, map(7, 60)), 5),           // newest, worse
+		at(play(1, { speed: 900 }, map(7, 60)), 2),           // the best at 1x: 900 a minute
+		at(play(1, { speed: 800 }, map(7, 60)), 3, 1.2),      // 1.2x: 800 / (1 / 1.2) = 960 a minute: the map's best
+		at(play(2, { stamina: 700 }, map(8, 60)), 4),
+	]);
+	assert.deepEqual(ever.map((m) => [m.beatmapId, m.rate, Math.round(m.perMinute)]), [[1, 1.2, 960], [2, 1, 700]]);
+	assert.equal(ever[0].others.length, 1);
+	assert.equal(ever[0].others[0].lastXp, 900);
+	assert.equal(ever[0].others[0].n, 2);
+	assert.equal(ever[0].prevXp, 0);
 });

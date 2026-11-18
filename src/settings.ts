@@ -29,6 +29,8 @@ export type Settings = {
 	animButtons: OnOff, animSwitches: OnOff, animWindow: OnOff, animPages: OnOff, animFlash: OnOff, animBars: OnOff, animPlays: OnOff, animRows: OnOff, animConfetti: OnOff, soundSurprise: OnOff, soundHorn: OnOff, surpriseOpen: OnOff,
 	/** Mute every ADHD Mode sound; play them only while the game is in front. */
 	muteAll: OnOff, focusOnly: OnOff,
+	/** All Time Highest's playlist: how many maps, and the XP per time (in the unit shown) they're between; 0 = no max. */
+	atCount: number, atMin: number, atMax: number,
 	/** The accuracy XP a new play must give a map (more than this) for ADHD Mode's accuracy surprise. */
 	surpriseXp: number,
 	/** Skills hidden in Most effective maps and the recent list: `hidden`, maps that give it the most XP; `removed`,
@@ -44,7 +46,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', strainMode: 'max', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', muteAll: 'off', focusOnly: 'on', surpriseXp: 2000, hidden: [], removed: [], playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', muteAll: 'off', focusOnly: 'on', atCount: 25, atMin: 0, atMax: 0, surpriseXp: 2000, hidden: [], removed: [], playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -54,6 +56,9 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The number settings (how long counts as recent, how many maps each list shows, how many plays are averaged): a
  *  whole number from 1 (or `min`) to 999, or null. */
+/** All Time Highest's maps, at most. */
+export const ALL_TIME_COUNT = 250;
+
 export const NUMBER_SETTINGS = ['recentFor', 'recentCount', 'bestCount', 'avgOf', 'avgOfRecent', 'oldFor', 'strainFor', 'surpriseXp'] as const;
 export const wholeOf = (v: unknown, min = 1, max = 999): number | null => {
 	const n = Number(v);
@@ -121,6 +126,9 @@ export const loadSettings = (): Settings => {
 		surpriseOpen: oneOf(s.surpriseOpen, ['off', 'on'], DEFAULTS.surpriseOpen),
 		muteAll: oneOf(s.muteAll, ['off', 'on'], DEFAULTS.muteAll),
 		focusOnly: oneOf(s.focusOnly, ['off', 'on'], DEFAULTS.focusOnly),
+		atCount: wholeOf(s.atCount, 1, ALL_TIME_COUNT) ?? DEFAULTS.atCount,
+		atMin: wholeOf(s.atMin, 0, 99999999) ?? DEFAULTS.atMin,
+		atMax: wholeOf(s.atMax, 0, 99999999) ?? DEFAULTS.atMax,
 		surpriseXp: wholeOf(s.surpriseXp, 0, NUMBER_MAX.surpriseXp) ?? DEFAULTS.surpriseXp,
 		soundCopy: oneOf(s.soundCopy, ['off', 'on'], DEFAULTS.soundCopy),
 		oldFor: wholeOf(s.oldFor) ?? DEFAULTS.oldFor,

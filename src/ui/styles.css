@@ -37,7 +37,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn[aria-disabled='true'] { opacity: 0.55; cursor: default; pointer-events: none; }
 .btn[data-action='refresh'] { min-width: 118px; }
 .btn.small { height: 26px; padding: 0 10px; font-size: 12px; }
-.card-head .save-playlist { margin-left: auto; align-self: center; }
+.card-head .save-playlist, .card-head .all-time { margin-left: auto; align-self: center; }
+/* All Time Highest: its playlist fields and Save, on the right with the Effective Maps button */
+.all-time-save { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.all-time-save[hidden] { display: none; }
+.all-time-save:not([hidden]) + .all-time { margin-left: 0; }
+.inline-field { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.inline-field .num-field { width: 72px; height: 28px; }
+/* All Time Highest: a map's other rates in a folder, as in Skills */
+.best .detail.rates-list { padding: 0; }
+.best .row.sub { min-height: 32px; border-top: 0; font-size: 12px; contain-intrinsic-size: auto 32px; }
+.best .row.sub .map { line-height: 1.15; }
 .detail .btn.small { margin-top: 8px; }
 /* Recent plays showing one map: its name and a way back to all plays */
 .filter { display: inline-flex; align-items: baseline; gap: 10px; margin-left: auto; color: var(--muted); min-width: 0; }

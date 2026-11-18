@@ -9,7 +9,7 @@ export const ONLY_7K = ['jacks', 'independence', 'ln', 'technical', 'focus', 'sv
 /**
  * @typedef {Record<string, number>} Gains  XP per skill
  * @typedef {{ title: string, difficulty: string, keys: number, lengthSec: number, stars?: number, mapper?: string }} MapInfo
- * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number, pp?: number, xpSaved?: boolean }} Play
+ * @typedef {{ beatmapId: number, playedAt: number, rate: number, mods: string, gains: Gains, info: MapInfo | undefined, total: number, pp?: number, xpSaved?: boolean, n?: number }} Play
  * @typedef {{ beatmapId: number, rate: number, info: MapInfo | undefined, n: number, nXp: number, xp: number, gains: Gains, lastAt: number, last: Gains, lastXp: number, prevAt: number, prevXp: number, perPlay: number, perMinute: number }} MapStats
  */
 
@@ -79,6 +79,41 @@ export const bestMaps = (plays, avgOf = Infinity, now = Date.now()) => {
 		out.push({ ...m, perPlay: m.xp / m.nXp, perMinute: minutes ? m.xp / m.nXp / minutes : 0 });
 	}
 	return out.sort((a, b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay));
+};
+
+/** @typedef {MapStats & { others: MapStats[] }} BestEver */
+/**
+ * All Time Highest: each map's best play ever, by XP per minute (at each rate apart): the map's best rate, with its
+ * other rates in `others` (slowest first), maps best first. A play is a MapStats of one play (`n` counts every play
+ * at that rate). Maps the catalogue has no length for go after, by XP.
+ * @param {Play[]} plays
+ * @returns {BestEver[]}
+ */
+export const allTimeBest = (plays) => {
+	/** @type {Map<string, { n: number, best: Play | null, perMinute: number }>} */
+	const byRate = new Map();
+	for (const p of plays) {
+		const rate = num(p.rate) || 1, key = `${p.beatmapId}@${rate}`;
+		const e = byRate.get(key) || { n: 0, best: null, perMinute: 0 };
+		// a row from All Time Highest's query stands for `n` plays
+		e.n += num(p.n) || 1;
+		const minutes = p.info && p.info.lengthSec > 0 ? p.info.lengthSec / rate / 60 : 0, perMinute = minutes ? p.total / minutes : 0;
+		if (p.total > 0 && (!e.best || perMinute > e.perMinute || (perMinute === e.perMinute && p.total > e.best.total))) { e.best = p; e.perMinute = perMinute; }
+		byRate.set(key, e);
+	}
+	/** @type {Map<number, MapStats[]>} */
+	const byMap = new Map();
+	for (const { n, best: p, perMinute } of byRate.values()) {
+		if (!p) continue;
+		const rate = num(p.rate) || 1;
+		const m = { beatmapId: p.beatmapId, rate, info: p.info, n, nXp: 1, xp: p.total, gains: p.gains, lastAt: p.playedAt, last: p.gains, lastXp: p.total, prevAt: -1, prevXp: 0, perPlay: p.total, perMinute };
+		byMap.set(p.beatmapId, [...(byMap.get(p.beatmapId) ?? []), m]);
+	}
+	const better = (/** @type {MapStats} */ a, /** @type {MapStats} */ b) => (b.perMinute - a.perMinute) || (b.perPlay - a.perPlay);
+	return [...byMap.values()].map((rates) => {
+		rates.sort(better);
+		return { .../** @type {MapStats} */ (rates[0]), others: rates.slice(1).sort((a, b) => a.rate - b.rate) };
+	}).sort(better);
 };
 
 /** 18400 → "18.4K". @param {number} n */

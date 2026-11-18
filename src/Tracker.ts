@@ -5,16 +5,16 @@
 import { Addon, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { createGenZ } from './ui/genz.js';
 import { noteSurprise, surprised } from './game/surprise.js';
-import { TrackerError, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
+import { TrackerError, allTime7k, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
-import { type MapStats, type Play, type Search, bestMaps, fitsSearch, mainSkill, num, parseSearch, playedIn, searching, topSkills } from './rules/logic.js';
-import { ACCENTS, type AccentId, DEFAULTS, type Settings, type View, accentOf, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, strainMs, recentMs, settingsStore, wholeOf } from './settings.js';
+import { type BestEver, type MapStats, type Play, type Search, allTimeBest, bestMaps, fitsSearch, mainSkill, num, parseSearch, playedIn, searching, topSkills } from './rules/logic.js';
+import { accentOf, ACCENTS, ALL_TIME_COUNT, DEFAULTS, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, strainMs, wholeOf, type AccentId, type Settings, type View } from './settings.js';
 import { MINDBLOCK_FREE, type PeakMap, peakMinutes, planToPeak, strainBar } from './rules/peak.js';
 import { arrowsOf } from './rules/strain.js';
 import styles from './ui/styles.css';
 import { CHANGELOG } from './ui/changelog.js';
 import { TEXT } from './ui/text.js';
-import { bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, playsHtml, showStrainAs } from './ui/view.js';
+import { allTimeHtml, bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, PER_MINUTE, playsHtml, showStrainAs } from './ui/view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings' | 'debug' | 'changelog';
@@ -122,7 +122,7 @@ export class Tracker extends Addon {
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span><span class="filter" data-filter hidden><span data-filter-name></span><button type="button" class="btn small" data-only="">${TEXT.showAll}</button></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span><span class="muted">${TEXT.skillsNote}</span></div><div class="legend-list">${legendHtml()}</div></section>
 					<section class="card best recent-best" hidden><div class="card-head"><span class="title" data-recent-title></span><span class="muted" data-recent-note></span><button type="button" class="btn small save-playlist" data-action="save-playlist" title="${TEXT.savePlaylistHelp}">${TEXT.savePlaylist}</button></div><div class="list" data-list="recent"></div></section>
-					<section class="card best" hidden><div class="card-head"><span class="title">${TEXT.best}</span><span class="muted" data-best-note></span></div><div class="list" data-list="best"></div></section>
+					<section class="card best" hidden><div class="card-head"><span class="title" data-best-title>${TEXT.best}</span><span class="muted" data-best-note></span><span class="all-time-save" data-all-time-save hidden>${([['atCount', TEXT.atMaps, '3', ''], ['atMin', TEXT.atMin, '8', ''], ['atMax', TEXT.atMax, '8', TEXT.atMaxAny]] as const).map(([key, label, max, empty]) => `<label class="inline-field">${label}<input type="text" class="num-field" inputmode="numeric" maxlength="${max}" autocomplete="off" spellcheck="false" placeholder="${empty}" data-at="${key}"></label>`).join('')}<button type="button" class="btn small" data-action="save-all-time">${TEXT.savePlaylist}</button></span><button type="button" class="btn small all-time" data-action="all-time">${TEXT.allTime}</button></div><div class="list" data-list="best"></div></section>
 					<section class="card by-skill" hidden><div class="card-head"><span class="title">${TEXT.bySkill}</span><span class="muted">${TEXT.bySkillNote}</span></div><div class="list" data-list="skills"></div></section>
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
@@ -214,6 +214,10 @@ export class Tracker extends Addon {
 			$('[data-action="advanced"]').setAttribute('aria-pressed', String(s.advanced === 'on'));
 			customColor.value = s.customAccent;
 			for (const input of numbers) input.value = String(s[input.dataset.number as typeof NUMBER_SETTINGS[number]]);
+			for (const input of root.querySelectorAll<HTMLInputElement>('[data-at]')) {
+				const v = s[input.dataset.at as 'atCount' | 'atMin' | 'atMax'];
+				input.value = input.dataset.at === 'atMax' && !v ? '' : String(v);
+			}
 			$('[data-best-note]').textContent = $('[data-recent-note]').textContent = TEXT.bestNote[s.unit] ?? '';
 			$('[data-recent-title]').textContent = TEXT.recentTitle(s.recentFor, s.recentUnit);
 			// ADHD Mode's own settings only while it's on, and only from the next time Settings is opened after turning
@@ -226,6 +230,16 @@ export class Tracker extends Addon {
 		};
 
 		let plays: Play[] | null = null;
+		/** Effective Maps shows All Time Highest instead (its button), from its own read of every play (null: the
+		 *  database couldn't, so the newest plays are used). Read again after new plays, showing the last read till then. */
+		let allTime = false;
+		let ever: Play[] | null = null, everStale = true;
+		/** The maps All Time Highest shows, best first: what its playlist is saved from. */
+		let everShown: BestEver[] = [];
+		const readEver = async () => {
+			ever = await allTime7k().catch(() => null);
+			if (allTime && page === 'best') renderLists();
+		};
 		/** ADHD Mode's accuracy surprise: once per map, ever, for a play since the last look (or since the game started)
 		 *  that gave the map more accuracy XP than the setting, and only if it's news: a map that already gave that
 		 *  before (any older play read) is known, and never surprises. Moves the last look on. */
@@ -298,7 +312,13 @@ export class Tracker extends Addon {
 				};
 				const ranked = shownSkills(keepMaps(bestMaps(kept, s.avgOf)));
 				const best = [...ranked.filter((m) => out(m) !== 'prestige'), ...ranked.filter((m) => out(m) === 'prestige')].slice(0, s.bestCount);
-				bestList.innerHTML = bestHtml(best, s.unit, s.skillsAs, since, TEXT.stale(title), none, true, undefined, false, undefined, out);
+				if (allTime) {
+					// All Time Highest: every play (searched, skills shown), each map's best ever
+					if (everStale) { everStale = false; void readEver(); }
+					const from = ever ?? plays;
+					everShown = allTimeBest(keepPlay() ? from.filter(keepPlay()!) : from).filter((m) => shownSkills([m]).length).slice(0, ALL_TIME_COUNT);
+					bestList.innerHTML = allTimeHtml(everShown, s.unit, s.skillsAs, none);
+				} else bestList.innerHTML = bestHtml(best, s.unit, s.skillsAs, since, TEXT.stale(title), none, true, undefined, false, undefined, out);
 				// the recent list counts only the plays inside the time, coloured as Effective Maps colours them
 				recentList.innerHTML = bestHtml(shownSkills(keepMaps(bestMaps(timed.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity))).slice(0, s.recentCount), s.unit, s.skillsAs, 0, '', none ?? TEXT.noRecent(title), true, undefined, false, gradeScale(best.filter((m) => out(m) !== 'prestige'), since));
 			} else {
@@ -397,8 +417,7 @@ export class Tracker extends Addon {
 			let text = TEXT.saved;
 			try {
 				if (!maps.length) throw new Error('no maps');
-				const id = await savePlaylist(s.playlistId, name, maps);
-				if (id !== s.playlistId) this.save({ playlistId: id });
+				await savePlaylist(name, maps);
 			} catch (e) {
 				this.log.error('saving the playlist failed', e);
 				text = TEXT.saveFailed;
@@ -406,6 +425,37 @@ export class Tracker extends Addon {
 			button.textContent = text;
 			window.setTimeout(() => { button.textContent = TEXT.savePlaylist; delete button.dataset.busy; }, 2000);
 		};
+
+		// All Time Highest's playlist: up to Maps of its maps, best first, whose XP per time (in the unit shown) is
+		// between Min XP and Max XP (no Max XP: no limit)
+		const saveAllTime = async (button: HTMLElement) => {
+			if (button.dataset.busy) return;
+			button.dataset.busy = '1';
+			const s = this.settings, per = PER_MINUTE[s.unit];
+			const maps = everShown.filter((m) => m.perMinute * per >= s.atMin && (!s.atMax || m.perMinute * per <= s.atMax)).slice(0, s.atCount);
+			let text = TEXT.saved;
+			try {
+				if (!maps.length) text = TEXT.noMapsInRange;
+				else await savePlaylist(TEXT.allTimePlaylist, maps);
+			} catch (e) {
+				this.log.error('saving the playlist failed', e);
+				text = TEXT.saveFailed;
+			}
+			button.textContent = text;
+			window.setTimeout(() => { button.textContent = TEXT.savePlaylist; delete button.dataset.busy; }, 2000);
+		};
+		// its fields: whole numbers, saved as they're left (Min XP emptied: 0; Max XP empty: no limit); one that can't be
+		// read goes back
+		for (const input of root.querySelectorAll<HTMLInputElement>('[data-at]')) {
+			const key = input.dataset.at as 'atCount' | 'atMin' | 'atMax';
+			this.on(input, 'input', () => { input.value = input.value.replace(/\D/g, ''); });
+			this.on(input, 'keydown', (event) => { if ((event as KeyboardEvent).key === 'Enter') input.blur(); else deleteKeys(input, event as KeyboardEvent); });
+			this.on(input, 'change', () => {
+				const n = key !== 'atCount' && input.value === '' ? 0 : wholeOf(input.value, key === 'atCount' ? 1 : 0, key === 'atCount' ? ALL_TIME_COUNT : 99999999);
+				if (n !== null) this.save({ [key]: n });
+				applyLook();
+			});
+		}
 
 		// near the end of Recent plays: the next 50 (only while scrolling, nothing runs otherwise)
 		this.on(playsList, 'scroll', () => {
@@ -435,7 +485,8 @@ export class Tracker extends Addon {
 			for (const b of root.querySelectorAll<HTMLElement>('[data-view]')) b.setAttribute('aria-selected', String(b.dataset.view === next));
 			$('.plays').hidden = next !== 'plays';
 			$('.card.best:not(.recent-best)').hidden = $('.legend').hidden = next !== 'best';
-			$('.recent-best').hidden = next !== 'best' || this.settings.recent === 'hide';
+			// All Time Highest replaces the recent list (the Skills box stays)
+			$('.recent-best').hidden = next !== 'best' || this.settings.recent === 'hide' || allTime;
 			$('.by-skill').hidden = next !== 'skills';
 			$('.suggest').hidden = next !== 'suggest';
 			$('.settings').hidden = next !== 'settings';
@@ -550,6 +601,8 @@ export class Tracker extends Addon {
 				const result = await recent7k(api);
 				if (ticket !== this.loading) return;
 				plays = result;
+				// new plays: All Time Highest reads again when it's shown
+				everStale = true;
 				// compared with what the lists showed: new plays flash (ADHD Mode)
 				newPlays = true;
 				try { renderLists(); } finally { newPlays = false; }
@@ -763,7 +816,7 @@ export class Tracker extends Addon {
 			if (set) {
 				this.save({ [set]: value } as Partial<Settings>);
 				applyLook();
-				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide';
+				if (set === 'recent') $('.recent-best').hidden = page !== 'best' || value === 'hide' || allTime;
 				if (set === 'genz' && value === 'on') genz.viewShown(listsOf(page));
 				if (['unit', 'skillsAs', 'strainAs', 'recentUnit', 'oldOn', 'oldUnit', 'outdateLevel', 'outdatePrestige'].includes(set)) renderLists();
 				// Strain: picked again from the other plays, if it was picked
@@ -779,6 +832,7 @@ export class Tracker extends Addon {
 			switch (action) {
 				case 'refresh': void refreshNow(target); break;
 				case 'save-playlist': void savePlaylistNow(target); break;
+				case 'save-all-time': void saveAllTime(target); break;
 				case 'suggest': void pickSuggest(); break;
 				case 'close': setOpen(false); break;
 				case 'settings': showPage(page === 'settings' ? this.settings.view : 'settings'); break;
@@ -786,6 +840,16 @@ export class Tracker extends Addon {
 				case 'debug': showPage(page === 'debug' ? this.settings.view : 'debug'); break;
 				case 'changelog': showPage(page === 'changelog' ? this.settings.view : 'changelog'); break;
 				case 'copy': e.preventDefault(); copyDebug(target); break;
+				case 'all-time':
+					// the title says which list it is; the button, the one it switches to
+					allTime = !allTime;
+					$('[data-best-title]').textContent = allTime ? TEXT.allTime : TEXT.best;
+					target.textContent = allTime ? TEXT.best : TEXT.allTime;
+					$('[data-all-time-save]').hidden = !allTime;
+					$('.recent-best').hidden = allTime || page !== 'best' || this.settings.recent === 'hide';
+					renderLists();
+					genz.viewShown(listsOf(page));
+					break;
 				case 'advanced':
 					this.save({ advanced: this.settings.advanced === 'on' ? 'off' : 'on' });
 					applyLook();
