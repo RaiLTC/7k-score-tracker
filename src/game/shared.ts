@@ -2,7 +2,7 @@
 // - Players who agree send their new plays' base XP (the XP with their bonuses taken back out, rules/base.js) in
 //   batches, every 10 minutes, whatever is waiting then. A batch that can't be sent waits for the next time; nothing
 //   from before they agreed (or from while sharing was off) is ever sent.
-// - Everyone, sharing or not, gets the map table, kept on this computer and fetched again once it's 10 minutes old (the server saves it again every 10 minutes)
+// - Everyone, sharing or not, gets the map table, kept on this computer and fetched again every 10 minutes, a minute after everyone's batch (at :00, :10, :20…)
 //   (or right after a batch is sent, or on Refresh).
 // Kept on this computer: a random player id (made here; it's all the server knows about a player), how far sending
 // has got, and the last table.
@@ -18,6 +18,23 @@ const ID_KEY = '7k-score-tracker:shared-id', SENT_KEY = '7k-score-tracker:shared
 export const SEND_EVERY = 10 * 60e3;
 /** The table kept on this computer is fetched again once it's this old (and after a batch is sent). */
 const TABLE_AGE = 10 * 60e3;
+/** When the table was last fetched for: :00, :10, :20…, a minute after everyone's batch (the server saves it in between). */
+const lastSaved = (now: number) => Math.floor(now / TABLE_AGE) * TABLE_AGE;
+/** The fetch's countdown: a minute from the batch going out (:09, :19, :29…) to the fetch; null outside that minute. */
+export const fetchIn = (now: number): number | null => {
+	const left = TABLE_AGE - (now % TABLE_AGE);
+	return left <= FETCH_AFTER ? left : null;
+};
+/** How long after the batch the table is fetched. */
+export const FETCH_AFTER = 60e3;
+/** True when the table is due a fetch (none kept, another game version, or not fetched since the last :x0). */
+export const tableDue = (): boolean => {
+	const kept = sharedTable();
+	// after a failed fetch, not again for 30 seconds
+	if (Date.now() - failedAt < 30e3) return false;
+	return !kept || kept.game !== gameVersion() || kept.fetched < lastSaved(Date.now());
+};
+let failedAt = 0;
 
 /** A map and rate's shared base XP, as the server sends it. */
 /** `mapPlayers`: the map's players over all its rates, each counted once. */
@@ -124,7 +141,8 @@ export const sharedTable = (): SharedTable | null => read<SharedTable>(TABLE_KEY
 /** The map table (never from the browser's own cache: freshness is decided here), fetched again once it's an hour old (or when `force`); the kept one when the server can't be reached. */
 export const fetchTable = async (force = false): Promise<SharedTable | null> => {
 	const kept = sharedTable(), game = gameVersion();
-	if (!force && kept && kept.game === game && Date.now() - kept.fetched < TABLE_AGE) return kept;
+	// fetched again at :00, :10, :20…: a minute after the batches sent at :09, :19, :29… (the server saved them in between)
+	if (!force && kept && kept.game === game && kept.fetched >= lastSaved(Date.now())) return kept;
 	try {
 		// with the kept table's time: when it hasn't changed, nothing is downloaded
 		const since = kept && kept.game === game ? kept.made : '';
@@ -140,6 +158,7 @@ export const fetchTable = async (force = false): Promise<SharedTable | null> => 
 		write(TABLE_KEY, table);
 		return table;
 	} catch {
+		failedAt = Date.now();
 		return kept;
 	}
 };

@@ -206,6 +206,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .shared-stats [data-next-batch] { min-width: 150px; }
 .shared-stats [data-next-batch] b, .shared-stats i { font-style: normal; font-variant-numeric: tabular-nums; }
 .shared-stats [data-next-batch] b { min-width: 3ch; text-align: right; }
+/* the fetch's countdown: grey at 01:00 until the batch goes, then counting down */
+.shared-stats [data-fetch] b { font-variant-numeric: tabular-nums; }
+.shared-stats [data-fetch].idle b { color: var(--muted); }
 .shared .detail { padding-left: 24px; }
 .shared .detail.rates-list { padding: 0; }
 .shared .row.sub { min-height: 32px; border-top: 0; font-size: 12px; contain-intrinsic-size: auto 32px; padding-left: 28px; }

@@ -134,6 +134,7 @@ export const TEXT = {
 	statRate: 'Shared plays/m',
 	statNext: 'Next batch',
 	statNextIn: (t: string) => `in ${t}`,
+	statFetch: 'Fetching',
 	sharedOffline: 'Shared can’t be reached right now. Try again later.',
 	sharedSent: (n: number) => `${n} play${n === 1 ? '' : 's'} sent to Shared`,
 	shareTitle: 'Help work out each map’s base XP',

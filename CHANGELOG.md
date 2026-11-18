@@ -2,6 +2,20 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.7] - 2026-11-18
+
+### Added
+
+- Show a Fetching countdown in Shared, from the batch going out to the new maps coming in
+
+### Changed
+
+- Get Shared's new maps a minute after each batch, instead of up to 10 minutes later
+
+### Fixed
+
+- Apply the search to Debug's base XP list
+
 ## [1.2.6] - 2026-11-18
 
 ### Changed

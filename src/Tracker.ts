@@ -4,7 +4,7 @@
 
 import { Addon, buildMeta, gameHost, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { createGenZ } from './ui/genz.js';
-import { type SharedStats, type SharedTable, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, takeNote } from './game/shared.js';
+import { type SharedStats, type SharedTable, FETCH_AFTER, fetchIn, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, tableDue, takeNote } from './game/shared.js';
 import { noteSurprise, surprised } from './game/surprise.js';
 import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
@@ -135,7 +135,7 @@ export class Tracker extends Addon {
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
 						<div class="suggest-body" data-suggest>${messageHtml(TEXT.suggestFirst)}</div></section>
-					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span></div><div class="list" data-list="shared"></div></section>
+					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span><span data-fetch class="idle">${TEXT.statFetch}<b data-stat="fetch">01:00</b></span></div><div class="list" data-list="shared"></div></section>
 					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="advanced" aria-pressed="false" title="${TEXT.advancedHelp}">${TEXT.advanced}</button><button type="button" class="btn small" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
 					<section class="card changelog" hidden><div class="card-head"><span class="title">${TEXT.changelog}</span><span class="muted">${TEXT.changelogNote}</span></div><div class="changelog-body" data-changelog></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
@@ -573,6 +573,13 @@ export class Tracker extends Addon {
 			const sec = Math.ceil(Math.max(0, nextSendAt() - Date.now()) / 1000);
 			$('[data-stat="next-in"]').textContent = TEXT.statNextIn(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
 		};
+		// the fetch's countdown: 01:00 in grey until the batch goes, then down to the fetch
+		const showFetch = () => {
+			const left = fetchIn(Date.now()), sec = left === null ? FETCH_AFTER / 1000 : Math.ceil(left / 1000);
+			const box = $('[data-fetch]');
+			box.classList.toggle('idle', left === null);
+			$('[data-stat="fetch"]').textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+		};
 		/** Sends what's waiting when a batch is due, then counts what's left (and shows the note). */
 		const shareNow = async (list: Play[]) => {
 			const n = await sendBatch(list);
@@ -581,10 +588,14 @@ export class Tracker extends Addon {
 			showPool();
 			if (n) $('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
 		};
-		// every second while the Shared tab shows: the countdown; every 30 seconds there: the numbers, and the table once
-		// it's 10 minutes old; every 10 minutes, open or not: the batch
+		// every second while the Shared tab shows: the countdowns, and the table when it's due (at :00, :10, :20…); every
+		// 30 seconds there: the numbers; every 10 minutes, open or not: the batch
 		this.own(((t) => () => window.clearInterval(t))(window.setInterval(() => {
-			if (!win.hidden && page === 'shared' && Date.now() % 30e3 < 1000) { refreshStats(); void loadShared(); }
+			if (!win.hidden && page === 'shared') {
+				showFetch();
+				if (tableDue()) void loadShared();
+				if (Date.now() % 30e3 < 1000) refreshStats();
+			}
 			if (this.settings.share !== 'on') return;
 			if (!win.hidden && page === 'shared') showPool();
 			if (Date.now() >= nextSendAt()) {
@@ -643,7 +654,8 @@ export class Tracker extends Addon {
 			try { data = await debugData(keep); } catch (e) { data = { error: String(e) }; }
 			const { plays: list, character, ...rest } = data;
 			// each recent play's base XP (Shared), or why it isn't used: a line per play, as Recent Plays
-			const baseRows = plays ? basePlays(plays).slice(0, DEBUG_LIST) : [];
+			// (worked out over every play, as mindblock counts the ones before; then only what fits the search)
+			const baseRows = plays ? basePlays(plays).filter((b) => !keep || keep(b.play.info, b.play.beatmapId, b.play.rate, b.play.gains, b.play.playedAt)).slice(0, DEBUG_LIST) : [];
 			const base = baseRows.map((b) => ({ playedAt: new Date(b.play.playedAt).toISOString(), beatmapId: b.play.beatmapId, map: b.play.info ? `${b.play.info.title} - ${b.play.info.difficulty}` : 'not in the catalogue', rate: b.play.rate, gains: b.play.gains, ...('base' in b ? { base: b.base } : { skip: b.skip }) }));
 			const parts: [string, unknown][] = [...Object.entries(rest), ['plays', list], ['base', base], ['settings', this.settings],
 				['addon', { version: this.meta.version, character, userAgent: navigator.userAgent, now: new Date().toISOString() }]];
