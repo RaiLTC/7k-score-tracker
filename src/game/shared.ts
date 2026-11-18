@@ -25,7 +25,7 @@ export type SharedMap = { map: number, rate: number, players: number, plays: num
 /** `sharing`: false while the server's off switch is on (then nothing is sent). */
 export type SharedTable = { game: string, made: string, fetched: number, sharing?: boolean, maps: SharedMap[] };
 /** How far sending has got: plays from `since` (agreeing) on, up to `last`, were sent; `note`: sent, not shown yet;
- *  `tryAt`: when the last batch was tried (the next goes SEND_EVERY later). */
+ *  `tryAt`: when the last batch was tried (the next goes at the clock's next send time after it). */
 type Sent = { since: number, last: number, count: number, note: number, tryAt: number };
 
 const read = <T>(key: string): T | null => { try { return JSON.parse(localStorage.getItem(key) ?? 'null') as T | null; } catch { return null; } };
@@ -80,7 +80,10 @@ const waitingIn = (plays: Play[]) => {
 /** How many plays are waiting to be sent. @param plays newest first */
 export const waitingCount = (plays: Play[]): number => waitingIn(plays).length;
 /** When the next batch goes. */
-export const nextSendAt = (): number => sentState().tryAt + SEND_EVERY;
+/** How long before the server saves its tables (every 10 minutes on the clock) everyone sends: :09, :19, :29… */
+const SEND_LEAD = 60e3;
+/** When the next batch goes: the clock's first send time after the last try, the same for everyone. */
+export const nextSendAt = (): number => (Math.floor((sentState().tryAt + SEND_LEAD) / SEND_EVERY) + 1) * SEND_EVERY - SEND_LEAD;
 
 /**
  * Sends the plays waiting, when the next batch is due (every 10 minutes); how many were sent.
@@ -91,7 +94,7 @@ export const sendBatch = async (plays: Play[]): Promise<number> => {
 	if (!s.since || now < nextSendAt() || sharedTable()?.sharing === false) return 0;
 	const game = gameVersion();
 	if (!game) return 0;
-	// due: the next check is 10 minutes from now, whether anything goes or not
+	// due: the next check is at the next send time, whether anything goes or not
 	s.tryAt = now;
 	saveSent();
 	const waiting = waitingIn(plays);
