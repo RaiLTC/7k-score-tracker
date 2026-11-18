@@ -2,6 +2,27 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.2] - 2026-11-18
+
+### Added
+
+- Open each map's card in Shared
+- Show how many players are sharing
+
+### Changed
+
+- Group Shared by song, then difficulty, then rate
+- Show everyone's plays from the last 5 minutes in Next batch
+
+### Removed
+
+- Remove the Delete my shared data button
+
+### Fixed
+
+- Note the strain of every play, so more of your plays can be shared
+- Show newly shared maps in Shared without a long wait
+
 ## [1.2.1] - 2026-11-18
 
 ### Added

@@ -20,16 +20,16 @@ const CATALOG_URL = 'https://api.oss.idle.rhythmgamers.net/v1/beatmap/catalog';
  *  READ_BATCHES times. */
 const READ_PLAYS = 2000, READ_BATCHES = 20;
 const CATALOG_MAX_AGE = 24 * 3600e3, CATALOG_RETRY = 3600e3, CATALOG_TIMEOUT = 20000;
-const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v3';
+const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-v4';
 /** Catalogues kept before, without what's kept now: removed once the new one is saved. */
-const OLD_CATALOG_KEYS = ['catalog-v2'];
+const OLD_CATALOG_KEYS = ['catalog-v2', 'catalog-v3'];
 
 type Api = {
 	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number }, skills?: Record<string, { level?: number, prestige?: number, xp_multipliers?: { total?: string } }> } | null | undefined>,
 };
 /** id → [title, difficulty, keys, length in seconds, stars, mapper]; when it was fetched and last tried; maps it
  *  didn't have: id → [tries, when to try again]. */
-type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number, number, string]>, missing?: Record<number, [number, number]> };
+type Catalog = { at: number, tried: number, maps: Record<number, [string, string, number, number, number, string, string?, number?]>, missing?: Record<number, [number, number]> };
 /** After the first try for a missing map: wait 1 minute, then 5; then it's unresolved. */
 const RETRY_AFTER = [60e3, 300e3];
 
@@ -87,9 +87,9 @@ const fetchCatalog = async (): Promise<Catalog> => {
 	const walk = (v: unknown): void => {
 		if (!v || typeof v !== 'object') return;
 		if (Array.isArray(v)) { v.forEach(walk); return; }
-		const o = v as { title?: string, creator?: string, versions?: { id?: number, version?: string, keys?: number, total_length?: number, difficulty?: number }[] };
+		const o = v as { id?: number, title?: string, artist?: string, creator?: string, versions?: { id?: number, version?: string, keys?: number, total_length?: number, difficulty?: number }[] };
 		if (Array.isArray(o.versions) && o.title) {
-			for (const d of o.versions) if (d && d.id) maps[d.id] = [o.title, d.version ?? '', num(d.keys), num(d.total_length) / 1000, num(d.difficulty), o.creator ?? ''];
+			for (const d of o.versions) if (d && d.id) maps[d.id] = [o.title, d.version ?? '', num(d.keys), num(d.total_length) / 1000, num(d.difficulty), o.creator ?? '', o.artist ?? '', num(o.id)];
 		}
 		for (const [k, child] of Object.entries(o)) if (k !== 'versions') walk(child);
 	};
@@ -128,7 +128,7 @@ const mapCatalog = async (played: number[]): Promise<Catalog> => {
 
 const infoOf = (cat: Catalog, id: number): MapInfo | undefined => {
 	const m = cat.maps[id];
-	return m ? { title: m[0], difficulty: m[1], keys: m[2], lengthSec: m[3], stars: num(m[4]), mapper: m[5] ?? '' } : undefined;
+	return m ? { title: m[0], difficulty: m[1], keys: m[2], lengthSec: m[3], stars: num(m[4]), mapper: m[5] ?? '', artist: m[6] ?? '', set: num(m[7]) } : undefined;
 };
 
 // ---- your plays ----
@@ -254,7 +254,7 @@ const STRAIN_KEY = '7k-score-tracker:strain';
 /** How many plays' strain is kept: the newest. */
 const STRAIN_KEEP = 2000;
 /** How many checks to wait for the game to count a new play's strain, when it hasn't changed yet. */
-const STRAIN_WAITS = 2;
+const STRAIN_WAITS = 6;
 /** A play's time and the game's strain time count as the same play this close together. */
 const STRAIN_NEAR = 3 * 60e3;
 /** The strain as the game last set it (at the end of a play) and when, and each play's change per minute of its
@@ -400,6 +400,9 @@ const saveStrain = (s: StrainStore) => {
 	for (const old of at.slice(STRAIN_KEEP)) delete s.plays[old];
 	try { localStorage.setItem(STRAIN_KEY, JSON.stringify(s)); } catch { /* kept for this session only */ }
 };
+
+/** True while the newest play waits for the game to count its strain (checked again on the next tick). */
+export const strainWaiting = (): boolean => (strainStoreOf().waits ?? 0) > 0;
 
 /** A play's strain, or undefined when it wasn't noted (played before the tracker noted strain). */
 export const strainOf = (playedAt: number): StrainPlay | undefined => {

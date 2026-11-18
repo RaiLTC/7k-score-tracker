@@ -20,7 +20,8 @@ export const SEND_EVERY = 5 * 60e3;
 const TABLE_AGE = 5 * 60e3;
 
 /** A map and rate's shared base XP, as the server sends it. */
-export type SharedMap = { map: number, rate: number, players: number, plays: number, perMinute: number, base: Record<string, number> };
+/** `mapPlayers`: the map's players over all its rates, each counted once. */
+export type SharedMap = { map: number, rate: number, players: number, plays: number, perMinute: number, base: Record<string, number>, mapPlayers?: number };
 /** `sharing`: false while the server's off switch is on (then nothing is sent). */
 export type SharedTable = { game: string, made: string, fetched: number, sharing?: boolean, maps: SharedMap[] };
 /** How far sending has got: plays from `since` (agreeing) on, up to `last`, were sent; `note`: sent, not shown yet;
@@ -114,27 +115,15 @@ export const sendBatch = async (plays: Play[]): Promise<number> => {
 	}
 };
 
-/** Deletes every play this computer shared, on the server; sharing stops, and a new id is made if it starts again. */
-export const deleteShared = async (): Promise<boolean> => {
-	const id = read<string>(ID_KEY);
-	if (id) {
-		const res = await fetch(`${SHARED_URL}/v1/players/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => null);
-		if (!res?.ok) return false;
-	}
-	try { localStorage.removeItem(ID_KEY); localStorage.removeItem(SENT_KEY); } catch { /* */ }
-	sent = undefined;
-	return true;
-};
-
 /** The map table kept on this computer (null before the first fetch). */
 export const sharedTable = (): SharedTable | null => read<SharedTable>(TABLE_KEY);
 
-/** The map table, fetched again once it's an hour old (or when `force`); the kept one when the server can't be reached. */
+/** The map table (never from the browser's own cache: freshness is decided here), fetched again once it's an hour old (or when `force`); the kept one when the server can't be reached. */
 export const fetchTable = async (force = false): Promise<SharedTable | null> => {
 	const kept = sharedTable(), game = gameVersion();
 	if (!force && kept && kept.game === game && Date.now() - kept.fetched < TABLE_AGE) return kept;
 	try {
-		const res = await fetch(`${SHARED_URL}/v1/maps${game ? `?game=${encodeURIComponent(game)}` : ''}`);
+		const res = await fetch(`${SHARED_URL}/v1/maps${game ? `?game=${encodeURIComponent(game)}` : ''}`, { cache: 'no-store' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const body = await res.json() as Omit<SharedTable, 'fetched'>;
 		const table = { ...body, fetched: Date.now() };
@@ -145,18 +134,18 @@ export const fetchTable = async (force = false): Promise<SharedTable | null> => 
 	}
 };
 
-/** The pool's numbers: every play shared, and how many arrived in the past hour. */
-export type SharedStats = { plays: number, players: number, lastHour: number };
+/** The pool's numbers: every play shared, the players, and how many arrived in the past hour and 5 minutes. */
+export type SharedStats = { plays: number, players: number, lastHour: number, last5: number };
 let stats: { at: number, value: SharedStats | null } = { at: 0, value: null };
-/** The pool's numbers, asked for again at most every 2 minutes (the last ones when the server can't be reached). */
+/** The pool's numbers, asked for again at most every minute (the last ones when the server can't be reached). */
 export const fetchStats = async (): Promise<SharedStats | null> => {
-	if (Date.now() - stats.at < 2 * 60e3) return stats.value;
+	if (Date.now() - stats.at < 60e3) return stats.value;
 	stats.at = Date.now();
 	try {
-		const res = await fetch(`${SHARED_URL}/v1/health`);
+		const res = await fetch(`${SHARED_URL}/v1/health`, { cache: 'no-store' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const body = await res.json() as Partial<SharedStats>;
-		stats.value = { plays: num(body.plays), players: num(body.players), lastHour: num(body.lastHour) };
+		stats.value = { plays: num(body.plays), players: num(body.players), lastHour: num(body.lastHour), last5: num(body.last5) };
 	} catch { /* the last ones */ }
 	return stats.value;
 };

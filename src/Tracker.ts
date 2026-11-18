@@ -4,9 +4,9 @@
 
 import { Addon, buildMeta, gameHost, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { createGenZ } from './ui/genz.js';
-import { type SharedStats, type SharedTable, deleteShared, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, takeNote } from './game/shared.js';
+import { type SharedStats, type SharedTable, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, takeNote } from './game/shared.js';
 import { noteSurprise, surprised } from './game/surprise.js';
-import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf } from './game/data.js';
+import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
 import { agoText, allTimeBest, type BestEver, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, topSkills } from './rules/logic.js';
 import { accentOf, ACCENTS, ALL_TIME_COUNT, DEFAULTS, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, strainMs, wholeOf, type AccentId, type Settings, type View } from './settings.js';
@@ -15,7 +15,7 @@ import { arrowsOf } from './rules/strain.js';
 import styles from './ui/styles.css';
 import { CHANGELOG } from './ui/changelog.js';
 import { TEXT } from './ui/text.js';
-import { allTimeHtml, bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, PER_MINUTE, playsHtml, type SharedGroup, sharedHtml, type SharedRow, showStrainAs } from './ui/view.js';
+import { allTimeHtml, bestHtml, bySkillHtml, changelogHtml, esc, gradeScale, legendHtml, listedPlays, messageHtml, PER_MINUTE, playsHtml, sharedHtml, type SharedRow, sharedSongs, showStrainAs } from './ui/view.js';
 
 type Api = Parameters<typeof recent7k>[0];
 type Page = View | 'settings' | 'debug' | 'changelog';
@@ -133,7 +133,7 @@ export class Tracker extends Addon {
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
 						<div class="suggest-body" data-suggest>${messageHtml(TEXT.suggestFirst)}</div></section>
-					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span></div><div class="list" data-list="shared"></div></section>
+					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span></div><div class="list" data-list="shared"></div></section>
 					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="advanced" aria-pressed="false" title="${TEXT.advancedHelp}">${TEXT.advanced}</button><button type="button" class="btn small" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
 					<section class="card changelog" hidden><div class="card-head"><span class="title">${TEXT.changelog}</span><span class="muted">${TEXT.changelogNote}</span></div><div class="changelog-body" data-changelog></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
@@ -143,7 +143,6 @@ export class Tracker extends Addon {
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 						${settingRow(TEXT.genz, TEXT.genzHelp, choice('genz', TEXT.genz, TEXT.oldOptions))}
 						${settingRow(TEXT.shareSetting, TEXT.shareSettingHelp, choice('share', TEXT.shareSetting, TEXT.oldOptions))}
-						${settingRow(TEXT.sharedData, '', `<button type="button" class="btn small" data-action="shared-delete">${TEXT.sharedDelete}</button>`, ' data-shared-count')}
 						</section>
 						<section class="settings-box" data-genz-settings hidden><div class="settings-group">${TEXT.groups.genz}</div>
 						<details class="settings-fold"><summary>${TEXT.animations}</summary>
@@ -236,7 +235,6 @@ export class Tracker extends Addon {
 			}
 			$('[data-best-note]').textContent = $('[data-recent-note]').textContent = TEXT.bestNote[s.unit] ?? '';
 			$('[data-recent-title]').textContent = TEXT.recentTitle(s.recentFor, s.recentUnit);
-			$('[data-shared-count]').textContent = TEXT.sharedDataHelp(sentCount());
 			// ADHD Mode's own settings only while it's on, and only from the next time Settings is opened after turning
 			// it on; the time tags only in Advanced mode
 			$('[data-genz-settings]').hidden = s.genz !== 'on' || !genzSettingsShown;
@@ -514,16 +512,12 @@ export class Tracker extends Addon {
 			if (!table) { sharedList.innerHTML = messageHtml(sharedState.loading ? TEXT.sharedLoading : TEXT.sharedOffline, !sharedState.loading); status.textContent = ''; return; }
 			// your own XP per minute at each map and rate (your latest play there)
 			const yours = new Map((plays ? bestMaps(plays, 1) : []).map((m) => [`${m.beatmapId}@${m.rate}`, m.perMinute]));
-			const rows: SharedRow[] = table.maps.map((m) => ({ ...m, info: infos[m.map], you: yours.get(`${m.map}@${m.rate}`) ?? 0 }))
+			const rows: SharedRow[] = table.maps.map((m) => ({ ...m, info: infos[m.map], you: yours.get(`${m.map}@${m.rate}`) ?? 0, mapPlayers: m.mapPlayers ?? m.players }))
 				.filter((m) => !searching(query) || fitsSearch(query, m.info, m.map, m.rate, m.base));
-			const byMap = new Map<number, SharedRow[]>();
-			for (const m of shownSkills(rows.map((r) => ({ ...r, gains: r.base })))) byMap.set(m.map, [...(byMap.get(m.map) ?? []), m]);
-			const groups: SharedGroup[] = [...byMap.values()].map((rates) => {
-				rates.sort((a, b) => b.perMinute - a.perMinute);
-				return { ...rates[0]!, others: rates.slice(1).sort((a, b) => a.rate - b.rate) };
-			}).sort((a, b) => b.perMinute - a.perMinute);
-			sharedList.innerHTML = sharedHtml(groups, s.unit, s.skillsAs, searching(query) ? TEXT.noMatch : TEXT.sharedNone);
-			status.textContent = TEXT.sharedUpdated(agoText(Date.now() - table.fetched), groups.length);
+			// songs, their difficulties, each difficulty's rates (the Skills box's focus and hiding go by each rate's skills)
+			const songs = sharedSongs(shownSkills(rows.map((r) => ({ ...r, gains: r.base }))));
+			sharedList.innerHTML = sharedHtml(songs, s.unit, s.skillsAs, searching(query) ? TEXT.noMatch : TEXT.sharedNone);
+			status.textContent = TEXT.sharedUpdated(agoText(Date.now() - table.fetched), songs.length);
 			showPool();
 		};
 		// a batch reaching Shared: a note at the bottom of the window for a moment
@@ -547,13 +541,15 @@ export class Tracker extends Addon {
 			const p = b?.play;
 			return JSON.stringify({ player: 'a random ID made on this computer', game: gameVersion ?? '', map: p?.beatmapId ?? 1000001910, rate: p?.rate ?? 1, mods: p?.mods ?? '', levels: '(your skill levels then)', acc: p?.acc ?? 0.96, misses: p?.misses ?? 3, len: p?.info?.lengthSec ?? 150, base: b && 'base' in b ? b.base : { ln: 3691.94, focus: 1649.21 }, at: p ? new Date(p.playedAt).toISOString() : '(when it was played)' }, null, 2);
 		};
-		let deleteArmed = 0;
 		// your plays waiting to be sent, and a countdown to the next batch: live while the Shared tab shows
 		let waiting = 0;
 		// the statistics bar: what you shared, the whole pool, and plays shared a minute (over the past hour)
 		const showStats = (st: SharedStats | null) => {
 			$('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
 			$('[data-stat="pool"]').textContent = st ? st.plays.toLocaleString('en-US') : '–';
+			$('[data-stat="players"]').textContent = st ? st.players.toLocaleString('en-US') : '–';
+			// the next batch: what everyone shared in the past 5 minutes
+			$('[data-stat="next"]').textContent = st ? st.last5.toLocaleString('en-US') : '–';
 			$('[data-stat="rate"]').textContent = st ? (st.lastHour / 60).toFixed(st.lastHour < 600 ? 1 : 0) : '–';
 		};
 		const refreshStats = () => void fetchStats().then(showStats);
@@ -563,7 +559,6 @@ export class Tracker extends Addon {
 			box.hidden = this.settings.share !== 'on';
 			if (box.hidden) return;
 			const sec = Math.ceil(Math.max(0, nextSendAt() - Date.now()) / 1000);
-			$('[data-stat="next"]').textContent = String(waiting);
 			$('[data-stat="next-in"]').textContent = TEXT.statNextIn(`${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`);
 		};
 		/** Sends what's waiting when a batch is due, then counts what's left (and shows the note). */
@@ -579,7 +574,7 @@ export class Tracker extends Addon {
 		// every few seconds while the Shared tab shows: the countdown; every 5 minutes, open or not: the batch
 		this.own(((t) => () => window.clearInterval(t))(window.setInterval(() => {
 			if (this.settings.share !== 'on') return;
-			if (!win.hidden && page === 'shared') { showPool(); if (Date.now() % 30e3 < 1000) refreshStats(); }
+			if (!win.hidden && page === 'shared') { showPool(); if (Date.now() % 60e3 < 1000) refreshStats(); }
 			if (Date.now() >= nextSendAt()) {
 				if (plays && !win.hidden) void shareNow(plays);
 				else void recent7k(gameApi()).then((r) => shareNow(r), () => undefined);
@@ -796,6 +791,9 @@ export class Tracker extends Addon {
 				void noteStrain(gameApi()).catch((e: unknown) => this.log.error('noting the strain failed', e));
 				// closed: a play due the accuracy surprise opens the tracker on Recent plays to show it
 				if (this.settings.genz === 'on' && this.settings.surpriseOpen === 'on') void surpriseWhileClosed();
+			// the newest play still waits for its strain: check again (the game counts it a little after saving it)
+			} else if (strainWaiting()) {
+				void noteStrain(gameApi()).then((noted) => { if (noted && !win.hidden) void load(); }, (e: unknown) => this.log.error('noting the strain failed', e));
 			// no new play: once a minute, draw again so times, the recent list and gray maps keep up
 			} else if (!win.hidden && Date.now() - this.drawnAt >= 60e3) renderLists();
 		}, () => undefined), POLL_MS);
@@ -970,17 +968,6 @@ export class Tracker extends Addon {
 					target.textContent = sample.hidden ? TEXT.shareShow : TEXT.shareHide;
 					break;
 				}
-				case 'shared-delete':
-					// two clicks: the first asks to be sure
-					if (Date.now() - deleteArmed > 4000) { deleteArmed = Date.now(); target.textContent = TEXT.sharedDeleteSure; window.setTimeout(() => { if (Date.now() - deleteArmed >= 4000) target.textContent = TEXT.sharedDelete; }, 4000); break; }
-					deleteArmed = 0;
-					void deleteShared().then((ok) => {
-						if (ok) this.save({ share: 'off' });
-						target.textContent = ok ? TEXT.sharedDeleted : TEXT.saveFailed;
-						applyLook();
-						window.setTimeout(() => { target.textContent = TEXT.sharedDelete; }, 2000);
-					});
-					break;
 				case 'reset-skills': this.save({ hidden: [], removed: [], focused: [] }); applyLook(); renderLists(); break;
 				case 'suggest': void pickSuggest(); break;
 				case 'close': setOpen(false); break;
@@ -1047,7 +1034,7 @@ export class Tracker extends Addon {
 			row.setAttribute('aria-expanded', String(!detail.hidden));
 			if (!detail.hidden) genz.rowOpened(detail);
 		};
-		for (const list of [playsList, bestList, recentList, skillsList, $('[data-suggest]')]) {
+		for (const list of [playsList, bestList, recentList, skillsList, sharedList, $('[data-suggest]')]) {
 			this.on(list, 'click', toggleRow);
 			// Shift + click would select text
 			this.on(list, 'mousedown', (e) => { if (advancedClick(e)) e.preventDefault(); });

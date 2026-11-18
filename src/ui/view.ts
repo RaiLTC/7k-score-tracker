@@ -227,30 +227,68 @@ export const allTimeHtml = (maps: BestEver[], unit: Unit, as: SkillsAs, empty: s
 	}).join('')}`;
 };
 
-/** A Shared row: a map and rate's base XP from everyone's plays, with its name and your own XP per minute there. */
-export type SharedRow = { map: number, rate: number, players: number, plays: number, perMinute: number, base: Gains, info: MapInfo | undefined, you: number };
-/** A map's best rate, with its other rates. */
-export type SharedGroup = SharedRow & { others: SharedRow[] };
+/** A Shared row: a map (difficulty) and rate's base XP from everyone's plays, with its catalogue entry and your own
+ *  XP per minute there (your real XP, bonuses and all). */
+export type SharedRow = { map: number, rate: number, players: number, plays: number, perMinute: number, base: Gains, info: MapInfo | undefined, you: number, mapPlayers: number };
+/** A difficulty: its rates, slowest first; `best`, the one with the most base XP per minute. */
+export type SharedDiff = { map: number, info: MapInfo | undefined, best: SharedRow, rates: SharedRow[], players: number, plays: number, you: number };
+/** A song: its difficulties, best first; its numbers are everything inside it combined. */
+export type SharedSong = { key: string, info: MapInfo | undefined, best: SharedRow, diffs: SharedDiff[], players: number, plays: number, you: number };
 
-/** The Shared tab: each map's base XP per time from everyone's plays (bonuses taken out), best first, with how many
- *  players and plays it's from and your own XP per time there (your real XP, bonuses and all); a map with more than one rate opens to a row per rate
- *  (slowest first), as in All Time Highest. */
-export const sharedHtml = (groups: SharedGroup[], unit: Unit, as: SkillsAs, empty: string): string => {
-	if (!groups.length) return `<div class="empty">${esc(empty)}</div>`;
-	const c = TEXT.cols, grade = gradeOf(groups.map((g) => g.perMinute));
-	const cells = (m: SharedRow, folder: number) => `
-		${mapCell(m.info, m.map)}
-		<span class="muted">${folder ? `<span class="rates">+${folder}</span>` : rateText(m.rate)}</span>
-		<span class="muted">${m.players}</span>
-		<span class="muted">${m.plays}</span>
-		${rateCell(m.perMinute, unit, grade)}
-		<span class="muted">${m.you > 0 ? rateXp(m.you, unit) : '–'}</span>
-		${skillsCell(m.base, as)}`;
-	return `<div class="row head-row"><span>${c.map}</span><span>${c.rate}</span><span>${c.players}</span><span>${c.plays}</span><span>${TEXT.sharedBase(TEXT.units[unit] ?? '')}</span><span>${TEXT.sharedYou(TEXT.units[unit] ?? '')}</span><span>${c.skills}</span></div>${groups.map((g) => {
-		const key = `${g.map}@${g.rate}`;
-		if (!g.others.length) return `<div class="row" data-key="${esc(key)}">${cells(g, 0)}</div>`;
-		const rates = [g, ...g.others].sort((a, b) => a.rate - b.rate);
-		return `<div ${row(key)}>${cells(g, g.others.length)}</div><div class="detail rates-list" hidden>${rates.map((y) => `<div class="row sub" data-key="${esc(`${key}>${y.rate}`)}">${cells(y, 0)}</div>`).join('')}</div>`;
+/** Groups rows into songs (by the catalogue's song, else alone) and difficulties, best first. */
+export const sharedSongs = (rows: SharedRow[]): SharedSong[] => {
+	const better = (a: { best: SharedRow }, b: { best: SharedRow }) => b.best.perMinute - a.best.perMinute;
+	const byMap = new Map<number, SharedRow[]>();
+	for (const r of rows) byMap.set(r.map, [...(byMap.get(r.map) ?? []), r]);
+	const diffs: SharedDiff[] = [...byMap.values()].map((rates) => {
+		const best = rates.reduce((a, b) => (b.perMinute > a.perMinute ? b : a));
+		return { map: best.map, info: best.info, best, rates: [...rates].sort((a, b) => a.rate - b.rate), players: Math.max(...rates.map((r) => r.mapPlayers || r.players)), plays: rates.reduce((n, r) => n + r.plays, 0), you: Math.max(0, ...rates.map((r) => r.you)) };
+	});
+	const bySong = new Map<string, SharedDiff[]>();
+	for (const d of diffs) {
+		const key = d.info?.set ? `set${d.info.set}` : `map${d.map}`;
+		bySong.set(key, [...(bySong.get(key) ?? []), d]);
+	}
+	return [...bySong.entries()].map(([key, list]) => {
+		list.sort(better);
+		const best = list[0]!.best;
+		// a player on two difficulties counts on each: the song shows the most any one difficulty has
+		return { key, info: best.info, best, diffs: list, players: Math.max(...list.map((d) => d.players)), plays: list.reduce((n, d) => n + d.plays, 0), you: Math.max(0, ...list.map((d) => d.you)) };
+	}).sort(better);
+};
+
+/** The Shared tab: songs, best first, each opening to its difficulties (hardest first), each opening to its rates
+ *  (slowest first), each opening to its card (base XP per skill for a play). A level with only one entry is skipped:
+ *  a song with one difficulty opens to its rates, a difficulty with one rate to its card. Songs and difficulties show
+ *  everything inside them combined. */
+export const sharedHtml = (songs: SharedSong[], unit: Unit, as: SkillsAs, empty: string): string => {
+	if (!songs.length) return `<div class="empty">${esc(empty)}</div>`;
+	const c = TEXT.cols, grade = gradeOf(songs.map((g) => g.best.perMinute));
+	const cells = (name: string, rate: string, players: number, plays: number, best: SharedRow, you: number) => `
+		<span class="map">${name}</span>
+		<span class="muted">${rate}</span>
+		<span class="muted">${players}</span>
+		<span class="muted">${plays}</span>
+		${rateCell(best.perMinute, unit, grade)}
+		<span class="muted">${you > 0 ? rateXp(you, unit) : '–'}</span>
+		${skillsCell(best.base, as)}`;
+	const card = (y: SharedRow) => breakdown(y.base, 1, TEXT.sharedCard(y.players, y.plays), y.you > 0 ? y.map : 0);
+	return `<div class="row head-row"><span>${c.map}</span><span>${c.rate}</span><span>${c.players}</span><span>${c.plays}</span><span>${TEXT.sharedBase(TEXT.units[unit] ?? '')}</span><span>${TEXT.sharedYou(TEXT.units[unit] ?? '')}</span><span>${c.skills}</span></div>${songs.map((g) => {
+		// the song, and who mapped it under it
+		const i = g.info, name = i ? `<span>${i.artist ? `${esc(i.artist)} - ` : ''}${esc(i.title)}</span>${i.mapper ? `<span class="muted">${esc(TEXT.sharedMappedBy(i.mapper))}</span>` : ''}` : `<span>${esc(TEXT.map(g.best.map))}</span>`;
+		const rateRow = (key: string, y: SharedRow) => `<div ${row(`${key}@${y.rate}`, '', 'sub sub2')}>${cells(`<span class="muted">${esc(TEXT.sharedRate(y.rate))}</span>`, rateText(y.rate), y.players, y.plays, y, y.you)}</div>${card(y)}`;
+		// what a difficulty opens to: its rates, slowest first (with one, its card)
+		const inDiff = (d: SharedDiff, key: string) => (d.rates.length > 1 ? `<div class="detail rates-list" hidden>${d.rates.map((y) => rateRow(key, y)).join('')}</div>` : card(d.best));
+		const rateOf = (d: SharedDiff) => (d.rates.length > 1 ? `<span class="rates">+${d.rates.length - 1}</span>` : rateText(d.best.rate));
+		// its difficulties, hardest first (a song with one opens straight to its rates)
+		const diffs = [...g.diffs].sort((a, b) => num(b.info?.stars) - num(a.info?.stars));
+		const only = diffs.length === 1 ? diffs[0]! : undefined;
+		const head = `<div ${row(g.key)}>${cells(name, only ? rateOf(only) : `<span class="rates">+${diffs.length - 1}</span>`, g.players, g.plays, g.best, g.you)}</div>`;
+		if (only) return head + inDiff(only, g.key);
+		return `${head}<div class="detail rates-list" hidden>${diffs.map((d) => {
+			const key = `${g.key}>${d.map}`;
+			return `<div ${row(key, '', 'sub')}>${cells(`<span class="muted">${esc(d.info?.difficulty ?? TEXT.map(d.map))}</span>`, rateOf(d), d.players, d.plays, d.best, d.you)}</div>${inDiff(d, key)}`;
+		}).join('')}</div>`;
 	}).join('')}`;
 };
 
