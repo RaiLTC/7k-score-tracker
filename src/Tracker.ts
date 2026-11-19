@@ -624,9 +624,11 @@ export class Tracker extends Addon {
 		// your plays waiting to be sent, and a countdown to the next batch: live while the Shared tab shows
 		let waiting = 0;
 		// the statistics bar: what you shared, the whole pool, and plays shared a minute (over the past hour)
+		const shortCount = (n: number) => (n < 1000 ? String(n) : n < 1e6 ? `${+(n / 1000).toFixed(1)}k` : `${+(n / 1e6).toFixed(1)}M`);
 		const showStats = (st: SharedStats | null) => {
 			$('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
-			$('[data-stat="pool"]').textContent = st ? st.plays.toLocaleString('en-US') : '–';
+			// short, so the box doesn't clip: 950, 4.7k, 12.3k, 1.2M
+			$('[data-stat="pool"]').textContent = st ? shortCount(st.plays) : '–';
 			$('[data-stat="players"]').textContent = st ? st.players.toLocaleString('en-US') : '–';
 			// the next batch: what everyone shared in the past 10 minutes
 			$('[data-stat="next"]').textContent = st ? st.last10.toLocaleString('en-US') : '–';
