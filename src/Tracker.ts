@@ -629,6 +629,8 @@ export class Tracker extends Addon {
 			$('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
 			// short, so the box doesn't clip: 950, 4.7k, 12.3k, 1.2M
 			$('[data-stat="pool"]').textContent = st ? shortCount(st.plays) : '–';
+			// the exact number on hover
+			$('[data-stat="pool"]').parentElement!.title = st ? st.plays.toLocaleString('en-US') : '';
 			$('[data-stat="players"]').textContent = st ? st.players.toLocaleString('en-US') : '–';
 			// the next batch: what everyone shared in the past 10 minutes
 			$('[data-stat="next"]').textContent = st ? st.last10.toLocaleString('en-US') : '–';

@@ -6,7 +6,7 @@ All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](h
 
 ### Fixed
 
-- Show Shared's total shared pool short, such as 4.7k, so it no longer gets cut off
+- Show Shared's total shared pool short, such as 4.7k, so it no longer gets cut off (hover it for the exact number)
 
 ## [1.2.9] - 2026-11-19
 
