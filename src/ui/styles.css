@@ -199,17 +199,37 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .shared .card-head .shared-status { margin-left: auto; }
 /* Shared's statistics bar */
 .shared-stats { display: flex; gap: 8px; margin: 0 0 8px; }
+/* every box the same width, filling the row: none changes size as its numbers or countdown change */
+.shared-stats > span { flex: 1 1 0; min-width: 0; justify-content: center; white-space: nowrap; }
 .shared-stats span { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; color: var(--muted); background: color-mix(in srgb, var(--text) 3%, transparent); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; }
 .shared-stats b { color: var(--text); font-size: 13px; font-weight: 600; }
 .shared-stats [hidden] { display: none; }
-/* the next batch: after the others; a fixed width and same-width digits, so it doesn't change size as it counts */
-.shared-stats [data-next-batch] { min-width: 150px; }
+/* Next batch has the most to say: a bit wider, still a fixed share of the row */
+.shared-stats > [data-next-batch] { flex-grow: 1.5; }
+/* the countdowns: same-width digits */
 .shared-stats [data-next-batch] b, .shared-stats i { font-style: normal; font-variant-numeric: tabular-nums; }
 .shared-stats [data-next-batch] b { min-width: 3ch; text-align: right; }
 /* the fetch's countdown: grey at 01:00 until the batch goes, then counting down */
 .shared-stats [data-fetch] b { font-variant-numeric: tabular-nums; }
 .shared-stats [data-fetch].idle b { color: var(--muted); }
 .shared .detail { padding-left: 24px; }
+/* Make a Playlist: a small window outside the window, on its left (nothing covered), and the right-click menu of a map */
+.pick-pop { position: absolute; right: calc(100% + 12px); bottom: 0; z-index: 6; width: 300px; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / 50%); }
+.pick-pop[hidden], .pick-menu[hidden] { display: none; }
+.pick-pop .head { display: flex; align-items: baseline; gap: 8px; }
+.pick-pop .head .title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-pop .head .muted { flex: none; margin-left: auto; }
+.pick-pop .pick-list { display: flex; flex-direction: column; gap: 3px; max-height: 220px; overflow-y: auto; }
+.pick-pop .item { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+.pick-pop .item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-pop .item .close { width: 20px; height: 20px; font-size: 11px; }
+.pick-pop .item .repeat { display: inline-flex; align-items: center; gap: 3px; }
+.pick-pop .item .repeat .num-field { width: 34px; height: 22px; padding: 0 4px; text-align: center; font-size: 12px; }
+.pick-pop .foot { display: flex; align-items: center; gap: 6px; }
+.pick-pop .foot input { flex: 1; min-width: 0; width: auto; height: 28px; }
+.pick-menu { position: absolute; z-index: 7; display: flex; flex-direction: column; padding: 4px; min-width: 170px; background: var(--card); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / 45%); }
+.pick-menu button { padding: 6px 10px; text-align: left; background: none; border: 0; border-radius: 6px; color: var(--text); font: inherit; font-size: 12px; }
+.pick-menu button:hover, .pick-menu button:focus-visible { background: var(--hover); }
 .shared .detail.rates-list { padding: 0; }
 .shared .row.sub { min-height: 32px; border-top: 0; font-size: 12px; contain-intrinsic-size: auto 32px; padding-left: 28px; }
 /* a difficulty's rates, further in */

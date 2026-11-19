@@ -282,9 +282,10 @@ export const multiplierHistory = (): MultiplierHistory => {
 	return (multipliers = {});
 };
 
-/** Maps' names and lengths from the catalogue, by id (undefined for one it doesn't know). */
+/** Maps' names and lengths from the catalogue, by id (undefined for one it doesn't know): one it doesn't know has the
+ *  catalogue fetched again, like a map you played (a map newer than the stored catalogue, shared by someone else). */
 export const mapInfos = async (ids: number[]): Promise<Record<number, MapInfo | undefined>> => {
-	const cat = await mapCatalog([]);
+	const cat = await mapCatalog(ids);
 	return Object.fromEntries(ids.map((id) => [id, infoOf(cat, id)]));
 };
 

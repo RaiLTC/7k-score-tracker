@@ -278,18 +278,20 @@ export const sharedHtml = (songs: SharedSong[], unit: Unit, as: SkillsAs, empty:
 	return `${header}${songs.slice(from, from + count).map((g) => {
 		// the song, and who mapped it under it
 		const i = g.info, name = i ? `<span>${i.artist ? `${esc(i.artist)} - ` : ''}${esc(i.title)}</span>${i.mapper ? `<span class="muted">${esc(TEXT.sharedMappedBy(i.mapper))}</span>` : ''}` : `<span>${esc(TEXT.map(g.best.map))}</span>`;
-		const rateRow = (key: string, y: SharedRow) => `<div ${row(`${key}@${y.rate}`, '', 'sub sub2')}>${cells(`<span class="muted">${esc(TEXT.sharedRate(y.rate))}</span>`, rateText(y.rate), y.players, y.plays, y, y.you)}</div>${card(y)}`;
+		// a row that is one map at one rate can be put in a playlist (its right-click menu, while Make a Playlist is open)
+		const pick = (y: SharedRow) => ` data-pick="${y.map}@${y.rate}"`;
+		const rateRow = (key: string, y: SharedRow) => `<div ${row(`${key}@${y.rate}`, '', 'sub sub2')}${pick(y)}>${cells(`<span class="muted">${esc(TEXT.sharedRate(y.rate))}</span>`, rateText(y.rate), y.players, y.plays, y, y.you)}</div>${card(y)}`;
 		// what a difficulty opens to: its rates, slowest first (with one, its card)
 		const inDiff = (d: SharedDiff, key: string) => (d.rates.length > 1 ? `<div class="detail rates-list" hidden>${d.rates.map((y) => rateRow(key, y)).join('')}</div>` : card(d.best));
 		const rateOf = (d: SharedDiff) => (d.rates.length > 1 ? `<span class="rates">+${d.rates.length - 1}</span>` : rateText(d.best.rate));
 		// its difficulties, hardest first (a song with one opens straight to its rates)
 		const diffs = [...g.diffs].sort((a, b) => num(b.info?.stars) - num(a.info?.stars));
 		const only = diffs.length === 1 ? diffs[0]! : undefined;
-		const head = `<div ${row(g.key)}>${cells(name, only ? rateOf(only) : `<span class="rates">+${diffs.length - 1}</span>`, g.players, g.plays, g.best, g.you)}</div>`;
+		const head = `<div ${row(g.key)}${only && only.rates.length === 1 ? pick(only.best) : ''}>${cells(name, only ? rateOf(only) : `<span class="rates">+${diffs.length - 1}</span>`, g.players, g.plays, g.best, g.you)}</div>`;
 		if (only) return head + inDiff(only, g.key);
 		return `${head}<div class="detail rates-list" hidden>${diffs.map((d) => {
 			const key = `${g.key}>${d.map}`;
-			return `<div ${row(key, '', 'sub')}>${cells(`<span class="muted">${esc(d.info?.difficulty ?? TEXT.map(d.map))}</span>`, rateOf(d), d.players, d.plays, d.best, d.you)}</div>${inDiff(d, key)}`;
+			return `<div ${row(key, '', 'sub')}${d.rates.length === 1 ? pick(d.best) : ''}>${cells(`<span class="muted">${esc(d.info?.difficulty ?? TEXT.map(d.map))}</span>`, rateOf(d), d.players, d.plays, d.best, d.you)}</div>${inDiff(d, key)}`;
 		}).join('')}</div>`;
 	}).join('')}`;
 };

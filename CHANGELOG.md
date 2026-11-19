@@ -2,6 +2,21 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.8] - 2026-11-19
+
+### Added
+
+- Make a playlist from Shared: open Make a Playlist, right-click maps to add them at 1.0 or their own rate, set how many times each repeats, and name it
+
+### Changed
+
+- Give Shared's numbers boxes the same widths, so they don't change size as the timers count
+- Reword the descriptions of Share my plays, Warn on level up and Outdate on prestige
+
+### Fixed
+
+- Show the names of new maps in Shared instead of "Map" and an ID
+
 ## [1.2.7] - 2026-11-18
 
 ### Added

@@ -135,7 +135,7 @@ export class Tracker extends Addon {
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
 						<div class="suggest-body" data-suggest>${messageHtml(TEXT.suggestFirst)}</div></section>
-					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span><span data-fetch class="idle">${TEXT.statFetch}<b data-stat="fetch">01:00</b></span></div><div class="list" data-list="shared"></div></section>
+					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span><button type="button" class="btn small" data-action="pick-open">${TEXT.pickOpen}</button></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span><span data-fetch class="idle">${TEXT.statFetch}<b data-stat="fetch">01:00</b></span></div><div class="list" data-list="shared"></div></section>
 					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="advanced" aria-pressed="false" title="${TEXT.advancedHelp}">${TEXT.advanced}</button><button type="button" class="btn small" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
 					<section class="card changelog" hidden><div class="card-head"><span class="title">${TEXT.changelog}</span><span class="muted">${TEXT.changelogNote}</span></div><div class="changelog-body" data-changelog></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
@@ -547,6 +547,72 @@ export class Tracker extends Addon {
 			<div><h4>${TEXT.shareNeverTitle}</h4><ul>${TEXT.shareNever.map((t) => `<li>${t}</li>`).join('')}</ul><h4 class="next">${TEXT.shareKnowTitle}</h4><ul>${TEXT.shareKnow.map((t) => `<li>${t}</li>`).join('')}</ul></div></div>
 			<textarea class="sample dbg-text" readonly spellcheck="false" hidden></textarea>
 			<div class="foot"><button type="button" class="link" data-action="share-show">${TEXT.shareShow}</button><span class="muted">${TEXT.shareLater}</span><button type="button" class="btn" data-action="share-no">${TEXT.shareDisagree}</button><button type="button" class="btn" data-action="share-yes">${TEXT.shareAgree}</button></div></section></div>`);
+		// ---- Make a Playlist: maps picked from Shared (right-click a map while it's open), saved as one game playlist
+		let picked: { map: number, rate: number, repeat: number }[] | null = null;
+		win.insertAdjacentHTML('beforeend', `<section class="pick-pop" role="dialog" aria-label="${TEXT.pickTitle}" hidden><div class="head"><span class="title">${TEXT.pickTitle} - <span data-pick-preview>${esc(TEXT.pickName(''))}</span></span><span class="muted" data-pick-count></span></div><div class="pick-list" data-pick-list></div>
+			<div class="foot"><button type="button" class="btn small" data-action="pick-close">${TEXT.close}</button><input type="text" class="num-field" maxlength="40" autocomplete="off" spellcheck="false" placeholder="${TEXT.pickNamePlaceholder}" data-pick-name><button type="button" class="btn small" data-action="pick-create">${TEXT.pickCreate}</button></div></section>
+			<div class="pick-menu" role="menu" hidden></div>`);
+		const pickPop = $('.pick-pop'), pickMenu = $('.pick-menu');
+		const pickLabel = (map: number) => {
+			const i = sharedState.infos[map];
+			return i ? `${i.title}${i.difficulty ? ` · ${i.difficulty}` : ''}` : TEXT.map(map);
+		};
+		const drawPicked = () => {
+			pickPop.hidden = !picked;
+			if (!picked) return;
+			$('[data-pick-count]').textContent = picked.length ? TEXT.pickCount(picked.length) : TEXT.pickHint;
+			$('[data-pick-list]').innerHTML = picked.map((m, i) => `<div class="item"><span class="name">${esc(pickLabel(m.map))}</span><span class="muted">${m.rate}</span><span class="repeat"><span class="muted">×</span><input type="text" class="num-field" inputmode="numeric" maxlength="2" autocomplete="off" spellcheck="false" aria-label="${TEXT.pickRepeat}" value="${m.repeat}" data-pick-repeat="${i}"></span><button type="button" class="close" data-action="pick-remove" data-i="${i}" aria-label="${TEXT.pickRemove}" title="${TEXT.pickRemove}">✕</button></div>`).join('');
+		};
+		// the playlist's name as it will be saved, shown in the window's title as it's typed
+		const pickName = $<HTMLInputElement>('[data-pick-name]');
+		const showPickName = () => { $('[data-pick-preview]').textContent = TEXT.pickName(pickName.value.trim()); };
+		this.on(pickName, 'input', showPickName);
+		// how many times each map plays: 1 to 99 (anything else counts as 1, and shows so once you leave the box)
+		this.on(pickPop, 'input', ((e: Event) => {
+			const box = e.target as HTMLInputElement, i = box.dataset.pickRepeat;
+			if (i === undefined || !picked?.[Number(i)]) return;
+			box.value = box.value.replace(/\D/g, '');
+			picked[Number(i)]!.repeat = Math.min(99, Math.max(1, Number(box.value) || 1));
+		}) as EventListener);
+		this.on(pickPop, 'focusout', ((e: Event) => {
+			const box = e.target as HTMLInputElement, i = box.dataset.pickRepeat;
+			if (i !== undefined && picked?.[Number(i)]) box.value = String(picked[Number(i)]!.repeat);
+		}) as EventListener);
+		const closePickMenu = () => { pickMenu.hidden = true; };
+		// a map's menu: at 1.0, and at its own rate when that isn't 1.0
+		this.on(sharedList, 'contextmenu', ((e: MouseEvent) => {
+			const rowEl = (e.target as HTMLElement).closest<HTMLElement>('[data-pick]');
+			if (!picked || !rowEl) return;
+			e.preventDefault();
+			const [map, rate] = (rowEl.dataset.pick ?? '').split('@').map(Number) as [number, number];
+			pickMenu.innerHTML = `<button type="button" role="menuitem" data-action="pick-add" data-map="${map}" data-rate="1">${TEXT.pickAdd}</button>${rate !== 1 ? `<button type="button" role="menuitem" data-action="pick-add" data-map="${map}" data-rate="${rate}">${esc(TEXT.pickAddRate(rate))}</button>` : ''}`;
+			pickMenu.hidden = false;
+			const box = win.getBoundingClientRect();
+			pickMenu.style.left = `${Math.min(e.clientX - box.left, box.width - pickMenu.offsetWidth - 8)}px`;
+			pickMenu.style.top = `${Math.min(e.clientY - box.top, box.height - pickMenu.offsetHeight - 8)}px`;
+		}) as EventListener);
+		this.on(sharedList, 'scroll', closePickMenu);
+		this.on(win, 'click', ((e: MouseEvent) => { if (!pickMenu.contains(e.target as Node)) closePickMenu(); }) as EventListener);
+		const createPicked = async (button: HTMLElement) => {
+			if (!picked || button.dataset.busy) return;
+			const done = (text: string, close: boolean) => {
+				button.textContent = text;
+				button.dataset.busy = '1';
+				window.setTimeout(() => {
+					button.textContent = TEXT.pickCreate;
+					delete button.dataset.busy;
+					if (close) { picked = null; pickName.value = ''; showPickName(); drawPicked(); }
+				}, close ? 1000 : 2000);
+			};
+			if (!picked.length) { done(TEXT.pickEmpty, false); return; }
+			try {
+				await savePlaylist(TEXT.pickName(pickName.value.trim()), picked.map((m) => ({ beatmapId: m.map, rate: m.rate, repeat: m.repeat })));
+				done(TEXT.saved, true);
+			} catch (e) {
+				this.log.error('saving the playlist failed', e);
+				done(TEXT.saveFailed, false);
+			}
+		};
 		/** What one play looks like when sent: the newest play with a base XP, or an example. */
 		const shareSample = () => {
 			const b = plays ? basePlays(plays).find((x) => 'base' in x) : undefined;
@@ -614,6 +680,9 @@ export class Tracker extends Addon {
 			$('.legend').hidden = next !== 'best' && next !== 'shared';
 			$('.shared').hidden = next !== 'shared';
 			$('.share-veil').hidden = next !== 'shared' || this.settings.share !== 'ask';
+			// Make a Playlist belongs to Shared: hidden on the other tabs (what's picked stays)
+			pickPop.hidden = next !== 'shared' || !picked;
+			closePickMenu();
 			if (next === 'shared') { void loadShared(); refreshStats(); }
 			// All Time Highest replaces the recent list (the Skills box stays)
 			$('.recent-best').hidden = next !== 'best' || this.settings.recent === 'hide' || allTime;
@@ -982,6 +1051,17 @@ export class Tracker extends Addon {
 				case 'refresh': void refreshNow(target); if (page === 'shared') void loadShared(true); break;
 				case 'save-playlist': void savePlaylistNow(target); break;
 				case 'save-all-time': void saveAllTime(target); break;
+				case 'pick-open': picked = picked ?? []; drawPicked(); break;
+				case 'pick-close': picked = null; closePickMenu(); drawPicked(); break;
+				case 'pick-add': {
+					const map = Number(target.dataset.map), rate = Number(target.dataset.rate);
+					if (picked && !picked.some((m) => m.map === map && m.rate === rate)) picked.push({ map, rate, repeat: 1 });
+					closePickMenu();
+					drawPicked();
+					break;
+				}
+				case 'pick-remove': picked?.splice(Number(target.dataset.i), 1); drawPicked(); break;
+				case 'pick-create': void createPicked(target); break;
 				case 'share-yes': case 'share-no':
 					this.save({ share: action === 'share-yes' ? 'on' : 'off' });
 					if (action === 'share-yes') startSharing();
