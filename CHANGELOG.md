@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.9] - 2026-11-19
+
+### Changed
+
+- Name every playlist the tracker saves "7KST: …", and rename your older "7K: …" and "7K-ST: …" ones to match the next time you save them
+
 ## [1.2.8] - 2026-11-19
 
 ### Added

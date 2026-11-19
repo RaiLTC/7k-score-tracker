@@ -225,12 +225,17 @@ export const allTime7k = async (): Promise<Play[] | null> => {
 // ---- your playlist ----
 
 /**
- * Saves maps (best first) into the game playlist named `name` (7K-ST: …), and returns its id: a playlist of that name
+ * Saves maps (best first) into the game playlist named `name` (7KST: …), and returns its id: a playlist of that name
  * has its maps replaced, else a new one is made. Only that playlist is ever written: the others are never touched.
+ * `oldNames`: what earlier versions called it; with none of the new name yet, the newest of those is renamed and used.
  */
-export const savePlaylist = async (name: string, maps: { beatmapId: number, rate: number, repeat?: number }[]): Promise<number> => {
+export const savePlaylist = async (name: string, maps: { beatmapId: number, rate: number, repeat?: number }[], oldNames: string[] = []): Promise<number> => {
 	if (!playingAs) throw new TrackerError(TEXT.errors.noCharacter);
 	let playlist = num(await gameDb.value('SELECT MAX(id) FROM playlist WHERE name = ? AND characterId = ?', [name, playingAs]));
+	if (!playlist && oldNames.length) {
+		playlist = num(await gameDb.value(`SELECT MAX(id) FROM playlist WHERE name IN (${oldNames.map(() => '?').join(', ')}) AND characterId = ?`, [...oldNames, playingAs]));
+		if (playlist) await gameDb.run('UPDATE playlist SET name = ? WHERE id = ?', [name, playlist]);
+	}
 	if (!playlist) {
 		const at = Date.now();
 		await gameDb.run('INSERT INTO playlist (name, createdAt, characterId) VALUES (?, ?, ?)', [name, at, playingAs]);

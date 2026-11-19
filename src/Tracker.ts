@@ -434,11 +434,13 @@ export class Tracker extends Addon {
 			const s = this.settings, since = Date.now() - recentMs(s), group = button.dataset.group as 'cool' | 'warm' | 'peak' | undefined;
 			const maps = group ? suggested?.[group]?.maps ?? []
 				: shownSkills(bestMaps(plays.filter((p) => p.playedAt >= since), s.avgOfRecent || Infinity)).slice(0, s.recentCount);
-			const name = group ? TEXT.playlistStrainName(TEXT.suggestGroups[group]!) : TEXT.playlistName(TEXT.recentTitle(s.recentFor, s.recentUnit));
+			const title = group ? TEXT.suggestGroups[group]! : TEXT.recentTitle(s.recentFor, s.recentUnit);
+			const name = group ? TEXT.playlistStrainName(title) : TEXT.playlistName(title);
+			const oldNames = group ? TEXT.oldPlaylistNames.strain(title) : TEXT.oldPlaylistNames.recent(title);
 			let text = TEXT.saved;
 			try {
 				if (!maps.length) throw new Error('no maps');
-				await savePlaylist(name, maps);
+				await savePlaylist(name, maps, oldNames);
 			} catch (e) {
 				this.log.error('saving the playlist failed', e);
 				text = TEXT.saveFailed;
@@ -457,7 +459,7 @@ export class Tracker extends Addon {
 			let text = TEXT.saved;
 			try {
 				if (!maps.length) text = TEXT.noMapsInRange;
-				else await savePlaylist(TEXT.allTimePlaylist, maps);
+				else await savePlaylist(TEXT.allTimePlaylist, maps, TEXT.oldPlaylistNames.allTime);
 			} catch (e) {
 				this.log.error('saving the playlist failed', e);
 				text = TEXT.saveFailed;
