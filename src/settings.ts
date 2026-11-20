@@ -2,6 +2,7 @@
 // a setting added later simply starts at its default.
 
 import { createSettings, parseHotkey } from '@oss-idle/addon-sdk';
+import { hotkeyKey } from './rules/hotkey.js';
 import { SKILLS_7K } from './rules/logic.js';
 
 export type View = 'plays' | 'best' | 'skills' | 'suggest' | 'shared';
@@ -153,8 +154,8 @@ export const accentOf = (s: Settings): string => (s.accent === 'custom' ? s.cust
 export const hotkeyOf = (e: KeyboardEvent): string | null | 'needs-modifier' => {
 	if (['Control', 'Shift', 'Alt', 'Meta', 'AltGraph'].includes(e.key)) return null;
 	if (!e.ctrlKey && !e.altKey && !e.metaKey) return 'needs-modifier';
-	const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-	return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta', key].filter(Boolean).join('+');
+	// letters and digits by their place on the keyboard: on a Mac, Option changes what they type
+	return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta', hotkeyKey(e)].filter(Boolean).join('+');
 };
 
 /** "Alt+Shift+S" as players read it: "Alt + Shift + S". */

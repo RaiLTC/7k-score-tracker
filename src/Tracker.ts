@@ -8,6 +8,7 @@ import { type SharedStats, type SharedTable, FETCH_AFTER, fetchIn, fetchStats, f
 import { noteSurprise, surprised } from './game/surprise.js';
 import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
+import { hotkeyMatches } from './rules/hotkey.js';
 import { agoText, allTimeBest, type BestEver, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, topSkills } from './rules/logic.js';
 import { accentOf, ACCENTS, ALL_TIME_COUNT, DEFAULTS, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, strainMs, wholeOf, type AccentId, type Settings, type View } from './settings.js';
 import { MINDBLOCK_FREE, type PeakMap, peakMinutes, planToPeak, strainBar } from './rules/peak.js';
@@ -903,9 +904,18 @@ export class Tracker extends Addon {
 		this.own(() => window.clearInterval(this.poll));
 
 		// the shortcut: registered from the setting, and again whenever it changes
+		// (matched here, not by the SDK's hotkeys: they go by what a key types, and on a Mac Option changes that, so a
+		// shortcut with Alt never opened the window there)
+		const onToggleKey = (e: KeyboardEvent) => {
+			if (e.repeat || this.recording || !hotkeyMatches(this.settings.hotkey, e)) return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			setOpen(win.hidden);
+		};
 		const bindToggle = () => {
 			this.toggleKey?.();
-			this.toggleKey = this.hotkeys.register(this.settings.hotkey, () => { if (!this.recording) setOpen(win.hidden); }, { allowInText: true });
+			window.addEventListener('keydown', onToggleKey, { capture: true });
+			this.toggleKey = () => window.removeEventListener('keydown', onToggleKey, { capture: true });
 			keyButton.textContent = hotkeyLabel(this.settings.hotkey);
 		};
 		bindToggle();
