@@ -40,7 +40,8 @@ const skillsCell = (gains: Gains, as: SkillsAs) => {
 	const most = Math.max(0, ...parts.map((sk) => num(gains[sk])));
 	return `<span class="skills">${SKILLS_7K.map((sk) => {
 		const v = num(gains[sk]);
-		return v > 0 ? `<i class="sk-${sk}" style="height:${(v / most) * 100}%" title="${skillName(sk)}: ${xpText(v)}"></i>` : `<i title="${skillName(sk)}: 0"></i>`;
+		// --h8: the height in eighths, for MySpace Mode's chunky bars
+		return v > 0 ? `<i class="sk-${sk}" style="height:${(v / most) * 100}%;--h8:${Math.ceil((v / most) * 8) * 12.5}%" title="${skillName(sk)}: ${xpText(v)}"></i>` : `<i title="${skillName(sk)}: 0"></i>`;
 	}).join('')}</span>`;
 };
 

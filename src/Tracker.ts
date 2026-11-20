@@ -6,10 +6,11 @@ import { Addon, buildMeta, gameHost, HotkeyManager, isolateInput, keepFocus } fr
 import { createGenZ } from './ui/genz.js';
 import { type SharedStats, type SharedTable, FETCH_AFTER, fetchIn, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, tableDue, takeNote } from './game/shared.js';
 import { noteSurprise, surprised } from './game/surprise.js';
-import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
+import { noteThrone } from './game/myspace.js';
+import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, newMaps, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
 import { hotkeyMatches } from './rules/hotkey.js';
-import { agoText, allTimeBest, type BestEver, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, topSkills } from './rules/logic.js';
+import { agoText, allTimeBest, type BestEver, bestBySkill, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, SKILLS_7K, topSkills, totalOf, xpText } from './rules/logic.js';
 import { accentOf, ACCENTS, ALL_TIME_COUNT, DEFAULTS, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, strainMs, wholeOf, type AccentId, type Settings, type View } from './settings.js';
 import { MINDBLOCK_FREE, type PeakMap, peakMinutes, planToPeak, strainBar } from './rules/peak.js';
 import { arrowsOf } from './rules/strain.js';
@@ -31,6 +32,9 @@ const SUGGEST_COUNT = 5;
 const REFRESH_COOLDOWN = 3000;
 /** How many Recent plays rows are drawn at a time. */
 const PLAYS_BATCH = 50;
+/** MySpace Mode's accents (classic, dark) and its sparkles' colours. */
+const MS_ACCENT = { light: '#ff6600', dark: '#ff0066' };
+const MS_SPARKS = ['#ff0066', '#ffcc00', '#33ccff', '#cc33ff'];
 /** Debug: how many plays its two lists show (Recent Plays, and their base XP). */
 const DEBUG_LIST = 100;
 
@@ -99,8 +103,10 @@ export class Tracker extends Addon {
 			`<button type="button" role="radio" data-accent="${id}" aria-checked="false" aria-label="${TEXT.accents[id]}" title="${TEXT.accents[id]}"${color ? ` style="background:${color}"` : ' class="custom"'}></button>`).join('');
 		root.innerHTML = `<style>${styles}</style>
 			<div class="window" role="dialog" aria-label="${TEXT.name}" hidden>
+				<div class="ms ms-bgwrap" aria-hidden="true"><i class="ms-bg"></i><i class="ms-bg ms-bg2"></i></div>
 				<div class="head">
 					<div class="title-row">
+						<span class="ms ms-logo" aria-hidden="true">7KST<small>.com</small> <small>| a place for 7K plays</small></span>
 						<span class="title">${TEXT.name}</span><span class="versions" data-versions></span>
 						<span class="spacer"></span>
 						<button type="button" class="icon-btn" data-action="debug" aria-label="${TEXT.debug}" title="${TEXT.debug}" aria-pressed="false">${BUG}</button>
@@ -124,9 +130,29 @@ export class Tracker extends Addon {
 							<div class="ops-label muted">${TEXT.searchOpsCompare}</div>
 							<div class="ops">${TEXT.searchCompareList.map(([op, what]) => `<code>${op}</code><span>${what}</span>`).join('')}</div></div></div>
 						<span data-unit-switch>${choice('unit', TEXT.unit, TEXT.units)}</span>
+						<label class="ms ms-dark"><input type="checkbox" data-ms-dark>${TEXT.ms.dark}</label>
 						<button type="button" class="btn" data-action="refresh">${TEXT.refresh}</button>
 					</div>
 				</div>
+				<div class="ms ms-marquee" aria-hidden="true"><span data-ms="marquee"></span></div>
+				<div class="body">
+				<aside class="ms ms-side">
+					<h1 class="ms-name"><span class="glitter" data-ms="name"></span></h1>
+					<div class="ms-prof"><div class="ms-pic" aria-hidden="true"><span data-ms="pic"></span></div>
+						<div class="ms-info"><span data-ms="quote"></span><br><span data-ms="versions"></span><br><br><span class="ms-online">${TEXT.ms.online}</span></div></div>
+					<div class="ms-mood"><b>${TEXT.ms.mood}</b> <span data-ms="mood"></span></div>
+					<div class="ms-player" aria-hidden="true"><div class="ms-player-row"><span class="ms-btns"><i>▶</i><i>❚❚</i></span><div class="ms-song"><span data-ms="song"></span></div><div class="ms-eq"><i></i><i></i><i></i><i></i></div></div><div class="ms-progress"><i></i></div></div>
+					<div class="ms-box"><div class="ms-bar">${esc(TEXT.ms.contact(TEXT.name))}</div><div class="ms-body ms-contact" data-ms="contact"></div></div>
+					<div class="ms-box"><div class="ms-bar">${esc(TEXT.ms.skills(TEXT.name))} <span class="ms-note" data-ms="skills-note"></span></div><div class="ms-body"><table class="ms-skills" data-ms="skills"></table></div></div>
+					<div class="ms-construction"><span>${TEXT.ms.construction}</span></div>
+					<div class="ms-counter">${TEXT.ms.counter}<br><span class="ms-digits" data-ms="counter"></span></div>
+				</aside>
+				<div class="main">
+					<div class="ms ms-ext">${esc(TEXT.ms.ext(TEXT.name))}<span class="glitter">${TEXT.ms.extNet}</span></div>
+					<div class="ms ms-head">${esc(TEXT.ms.latest(TEXT.name))}</div>
+					<div class="ms ms-latest" data-ms="latest"></div>
+					<div class="ms ms-head">${esc(TEXT.ms.top8(TEXT.name))}</div>
+					<div class="ms ms-top8" data-ms="top8"></div>
 				<div class="panels">
 					<section class="card plays"><div class="card-head"><span class="title">${TEXT.plays}</span><span class="muted" data-count></span><span class="filter" data-filter hidden><span data-filter-name></span><button type="button" class="btn small" data-only="">${TEXT.showAll}</button></span></div><div class="list" data-list="plays"></div></section>
 					<section class="card legend" hidden><div class="card-head"><span class="title">${TEXT.skillsTitle}</span><span class="muted">${TEXT.skillsNote}</span><button type="button" class="btn small reset-all" data-action="reset-skills">${TEXT.resetAll}</button></div><div class="legend-list">${legendHtml()}</div></section>
@@ -145,6 +171,7 @@ export class Tracker extends Addon {
 						${settingRow(TEXT.buttonStyle, TEXT.buttonStyleHelp, choice('buttons', TEXT.buttonStyle, TEXT.buttonStyles))}
 						${settingRow(TEXT.accent, TEXT.accentHelp, `<span class="swatches" role="radiogroup" aria-label="${TEXT.accent}">${swatches}<input type="color" tabindex="-1" aria-hidden="true" data-custom-color></span>`)}
 						${settingRow(TEXT.genz, TEXT.genzHelp, choice('genz', TEXT.genz, TEXT.oldOptions))}
+						${settingRow(TEXT.myspace, TEXT.myspaceHelp, choice('myspace', TEXT.myspace, TEXT.oldOptions))}
 						${settingRow(TEXT.shareSetting, TEXT.shareSettingHelp, choice('share', TEXT.shareSetting, TEXT.oldOptions))}
 						</section>
 						<section class="settings-box" data-genz-settings hidden><div class="settings-group">${TEXT.groups.genz}</div>
@@ -182,6 +209,10 @@ export class Tracker extends Addon {
 					</section>
 					</section>
 				</div>
+				<div class="ms ms-end" data-ms="end"></div>
+				</div>
+				</div>
+				<div class="ms ms-foot" data-ms="foot"></div>
 			</div>`;
 		document.body.appendChild(host);
 		this.own(() => host.remove());
@@ -214,8 +245,13 @@ export class Tracker extends Addon {
 		let genzSettingsShown = this.settings.genz === 'on';
 		// the settings that change how the window looks, applied all at once
 		const applyLook = () => {
-			const s = this.settings, accent = accentOf(s);
+			const s = this.settings, ms = s.myspace === 'on', dark = ms && s.myspaceDark === 'on';
+			// MySpace Mode: its own accent (orange, or hot pink when dark) in place of the picked one
+			const accent = ms ? (dark ? MS_ACCENT.dark : MS_ACCENT.light) : accentOf(s);
 			win.dataset.buttons = s.buttons;
+			win.classList.toggle('myspace', ms);
+			win.classList.toggle('ms-dark-on', dark);
+			$<HTMLInputElement>('[data-ms-dark]').checked = dark;
 			win.style.setProperty('--accent', accent);
 			win.style.setProperty('--accent-soft', `color-mix(in srgb, ${accent} 12%, transparent)`);
 			win.style.setProperty('--on-accent', onAccent(accent));
@@ -245,6 +281,7 @@ export class Tracker extends Addon {
 			$('[data-volume-value]').textContent = `${s.volume}%`;
 			for (const el of root.querySelectorAll<HTMLElement>('[data-advanced-only]')) el.hidden = s.advanced !== 'on';
 			genz.apply();
+			drawProfile();
 		};
 
 		let plays: Play[] | null = null;
@@ -298,6 +335,101 @@ export class Tracker extends Addon {
 		const renderLists = () => {
 			drawn = new Set();
 			drawPage();
+			drawProfile();
+		};
+		// ---- MySpace Mode: the profile around the lists, from the same plays (nothing is drawn while it's off)
+		const mapName = (m: { info?: Play['info'], beatmapId: number }) => (m.info ? `${m.info.title} [${m.info.difficulty}]` : TEXT.map(m.beatmapId));
+		/** MySpace Mode's quote, mood and closing line: picked at random each time the window opens (a number from 0 to 1
+		 *  per pool, so switching to dark picks from its own pool) */
+		let msRoll = { quote: Math.random(), mood: Math.random(), end: Math.random() };
+		const rollProfile = () => { msRoll = { quote: Math.random(), mood: Math.random(), end: Math.random() }; };
+		// the marquee: a new message each time it has scrolled by, never the same one twice in a row
+		const marquee = $('[data-ms="marquee"]');
+		let marqueeLook = '';
+		/** The marquee's news (each a few ways to say it): what's new shows first, once, then 1 time in 4. */
+		let msNews: string[][] = [], msNewMaps: string[] = [], msKings: string[][] = [];
+		const msShown = new Set<string>();
+		const any = <T>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
+		const nextMarquee = () => {
+			const pool = TEXT.ms.marquee[this.settings.myspaceDark === 'on' ? 1 : 0]!;
+			const fresh = msNews.find((n) => !msShown.has(n[0]!));
+			let next: string | undefined;
+			if (fresh) { msShown.add(fresh[0]!); next = any(fresh); }
+			else if (msNews.length && Math.random() < 1 / 4) next = any(any(msNews) ?? []);
+			// then 1 time in 3, a line about your best map in a skill; else a random line
+			else if (msKings.length && Math.random() < 1 / 3) next = any(any(msKings) ?? []);
+			if (!next || next === marquee.textContent) next = any(pool.filter((m) => m !== marquee.textContent));
+			marquee.textContent = next ?? pool[0] ?? '';
+		};
+		this.on(marquee, 'animationiteration', nextMarquee);
+		const drawProfile = () => {
+			const s = this.settings;
+			if (s.myspace !== 'on') return;
+			const dark = s.myspaceDark === 'on', pick = (pair: readonly string[]) => pair[dark ? 1 : 0] ?? '', now = Date.now();
+			const set = (key: string, html: string) => { $(`[data-ms="${key}"]`).innerHTML = html; };
+			const rolled = (pools: readonly (readonly string[])[], r: number) => { const pool = pools[dark ? 1 : 0] ?? []; return pool[Math.floor(r * pool.length)] ?? ''; };
+			if (marqueeLook !== s.myspaceDark) { marqueeLook = s.myspaceDark; nextMarquee(); }
+			set('name', esc(pick(TEXT.ms.name)));
+			set('pic', dark ? '💀' : '7K');
+			set('quote', esc(rolled(TEXT.ms.quote, msRoll.quote)));
+			set('versions', esc($('[data-versions]').textContent ?? ''));
+			set('end', esc(rolled(TEXT.ms.end, msRoll.end)));
+			set('foot', esc(pick(TEXT.ms.foot)));
+			// the newest play: the mood (its accuracy), the song playing and the latest play
+			const latest = plays?.[0];
+			set('mood', esc(rolled(TEXT.ms.moodText, msRoll.mood)) + (latest?.acc ? ` (${(latest.acc * 100).toFixed(1)}% acc)` : ''));
+			set('song', `♫ ${TEXT.ms.nowPlaying} ${esc(latest ? `${mapName(latest)} (${latest.rate}x)` : TEXT.ms.nothingPlaying)} ♫`);
+			set('latest', latest ? `<b>${esc(agoText(now - latest.playedAt))}:</b> ${esc(mapName(latest))} at ${latest.rate}x · ${xpText(totalOf(latest.gains))} XP` : esc(TEXT.ms.nothingPlaying));
+			// Top 8: the 8 most effective maps (old plays left out when that's on); each opens its plays in Recent
+			const from = plays ? (s.oldOn === 'on' ? plays.filter((p) => p.playedAt >= now - oldMs(s)) : plays) : [];
+			const top = shownSkills(bestMaps(from, s.avgOf)).slice(0, 8);
+			msNews = profileNews(from, dark, now);
+			// each skill's best map (from every play), with the lines for any skill and that skill's own
+			const d = dark ? 1 : 0;
+			msKings = bestBySkill(bestMaps(from, s.avgOf), 1).filter((g) => g.maps.length).map(({ skill, maps: [best] }) => {
+				const map = best!.map.info?.title ?? TEXT.map(best!.map.beatmapId), name = (TEXT.skills as Record<string, string>)[skill] ?? skill;
+				return [...TEXT.ms.kings.any[d]!.map((f) => f(map, name)), ...(TEXT.ms.kings.skill[skill]?.[d] ?? []).map((f) => f(map))];
+			});
+			set('top8', top.length ? top.map((m, i) => `<button type="button" class="ms-friend" data-only="${m.beatmapId}" title="${esc(mapName(m))}"><span class="ms-thumb sk-${mainSkill(m.gains)}">${dark ? TEXT.ms.top8Dark[i] : i + 1}</span><span class="ms-friend-name">${esc(m.info?.title ?? TEXT.map(m.beatmapId))}</span></button>`).join('') : `<span class="muted">${TEXT.ms.noTop8}</span>`);
+			// each skill: its level (and prestige) now, and its XP in the recent time per the unit shown
+			const since = now - recentMs(s), recent = plays ? plays.filter((p) => p.playedAt >= since) : [], minutes = recentMs(s) / 60e3, levels = levelHistory();
+			set('skills', SKILLS_7K.map((sk) => {
+				const marks = levels[sk], mark = marks?.[marks.length - 1];
+				const xp = (recent.reduce((t, p) => t + num(p.gains[sk]), 0) / minutes) * PER_MINUTE[s.unit];
+				return `<tr><td><i class="dot sk-${sk}"></i>${esc((TEXT.skills as Record<string, string>)[sk] ?? sk)}</td><td>${mark ? `Lv ${mark[1]}${mark[2] ? ` · P${mark[2]}` : ''} · ` : ''}${xp < 10 ? xp.toFixed(1) : xpText(xp)} ${TEXT.units[s.unit]}</td></tr>`;
+			}).join(''));
+			set('skills-note', esc(TEXT.recentTitle(s.recentFor, s.recentUnit)));
+			set('counter', String(plays?.length ?? 0).padStart(6, '0').split('').map((d) => `<b>${d}</b>`).join(''));
+			drawContact();
+		};
+		/** The marquee's news: your #1 map dethroned (for a day) or still #1 (from a day on), new 7K maps (for 3 days),
+		 *  and the map you farmed today (10 plays or more). The #1 is from every play, so the Skills box doesn't
+		 *  change it. */
+		const profileNews = (from: Play[], dark: boolean, now: number): string[][] => {
+			const news: string[][] = [], d = dark ? 1 : 0, say = TEXT.ms.news;
+			const king = bestMaps(from, this.settings.avgOf)[0];
+			if (king) {
+				const t = noteThrone(king.beatmapId, king.info?.title ?? TEXT.map(king.beatmapId), now);
+				if (t.prev && t.changedAt && now - t.changedAt < 864e5) news.push(say.dethroned[d]!.map((f) => f(t.prev!, t.title)));
+				const days = Math.floor((now - t.since) / 864e5);
+				if (days >= 1) news.push(say.reign[d]!.map((f) => f(t.title, days)));
+			}
+			for (const map of msNewMaps) news.push(say.newMap[d]!.map((f) => f(map)));
+			const today = new Map<number, number>();
+			for (const p of plays ?? []) if (now - p.playedAt < 864e5) today.set(p.beatmapId, (today.get(p.beatmapId) ?? 0) + 1);
+			const [farmed, n] = [...today].sort((a, b) => b[1] - a[1])[0] ?? [0, 0];
+			if (n >= 10) {
+				const title = plays?.find((p) => p.beatmapId === farmed)?.info?.title ?? TEXT.map(farmed);
+				news.push(say.farm[d]!.map((f) => f(title, n)));
+			}
+			return news;
+		};
+		/** The Contact box: the shown page's own buttons, as links that press them. */
+		let contactTargets: HTMLElement[] = [];
+		const drawContact = () => {
+			if (this.settings.myspace !== 'on') return;
+			contactTargets = [...root.querySelectorAll<HTMLElement>('.panels .card-head button, .panels .suggest-head button')].filter((b) => !b.closest('[hidden], .seg'));
+			$('[data-ms="contact"]').innerHTML = contactTargets.map((b, i) => `<button type="button" class="ms-link" data-ms-proxy="${i}">${esc(b.textContent ?? '')}</button>`).join('');
 		};
 		const drawPage = () => {
 			if (page === 'suggest') { drawSuggest(); return; }
@@ -712,6 +844,7 @@ export class Tracker extends Addon {
 			stopRecording();
 			drawPage();
 			genz.viewShown(listsOf(next));
+			drawContact();
 		};
 
 		// the debug view: a closed box per part; what was open stays open when it's drawn again
@@ -878,7 +1011,7 @@ export class Tracker extends Addon {
 		const setOpen = (open: boolean) => {
 			wantOpen = open;
 			// closing: hidden after ADHD Mode's short fade (at once without it)
-			if (open) { win.hidden = false; genz.opened(); genz.viewShown(listsOf(page)); const n = takeNote(); if (n) showSent(n); } else genz.closing(() => { if (!wantOpen) win.hidden = true; });
+			if (open) { rollProfile(); if (this.settings.myspace === 'on') void newMaps().then((list) => { msNewMaps = list; }, () => undefined); win.hidden = false; genz.opened(); genz.viewShown(listsOf(page)); const n = takeNote(); if (n) showSent(n); } else genz.closing(() => { if (!wantOpen) win.hidden = true; });
 			guard(open);
 			// Esc is taken only while the window is open: closed, it's the game's. While recording, it cancels.
 			this.escape?.();
@@ -991,7 +1124,7 @@ export class Tracker extends Addon {
 		const head = $('.head');
 		this.on(head, 'pointerdown', (e) => {
 			const p = e as PointerEvent;
-			if (p.button !== 0 || (p.target as Element).closest('button, .search')) return;
+			if (p.button !== 0 || (p.target as Element).closest('button, .search, label')) return;
 			// layout is read once, at the start; moving only sets transform, once a frame
 			const box = win.getBoundingClientRect(), dx = p.clientX - box.left, dy = p.clientY - box.top;
 			win.style.left = `${box.left}px`; win.style.top = `${box.top}px`; win.style.transform = 'none';
@@ -1016,6 +1149,27 @@ export class Tracker extends Addon {
 		// one listener for the header and settings buttons, one per list for opening a row's breakdown
 		const searchPop = $('.search-pop'), searchHelp = $('.search-help');
 		const showSearchHelp = (on: boolean) => { searchPop.hidden = !on; searchHelp.setAttribute('aria-expanded', String(on)); };
+		// MySpace Mode: a Contact link presses its button; afterwards the links show the buttons' new names
+		this.on(win, 'click', (e) => {
+			const proxy = (e.target as Element).closest<HTMLElement>('[data-ms-proxy]');
+			if (proxy) contactTargets[Number(proxy.dataset.msProxy)]?.click();
+			drawContact();
+		});
+		const msDark = $<HTMLInputElement>('[data-ms-dark]');
+		this.on(msDark, 'change', () => { this.save({ myspaceDark: msDark.checked ? 'on' : 'off' }); applyLook(); });
+		// MySpace Mode's sparkle trail: one sparkle at most every 40 ms, gone in under a second
+		let sparkAt = 0;
+		this.on(win, 'pointermove', (e) => {
+			const p = e as PointerEvent;
+			if (this.settings.myspace !== 'on' || p.timeStamp - sparkAt < 40 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+			sparkAt = p.timeStamp;
+			const box = win.getBoundingClientRect(), spark = document.createElement('span');
+			spark.className = 'ms-sparkle';
+			spark.textContent = this.settings.myspaceDark === 'on' ? '†' : '✦';
+			spark.style.cssText = `left:${p.clientX - box.left + 6}px;top:${p.clientY - box.top + 6}px;color:${MS_SPARKS[Math.floor(Math.random() * MS_SPARKS.length)]}`;
+			win.append(spark);
+			window.setTimeout(() => spark.remove(), 800);
+		});
 		this.on(win, 'click', (e) => {
 			// a click anywhere else closes the search help
 			if (!searchPop.hidden && !(e.target as Element).closest('.search-pop, .search-help')) showSearchHelp(false);

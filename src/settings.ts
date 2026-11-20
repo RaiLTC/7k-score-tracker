@@ -28,6 +28,8 @@ export type Settings = {
 	advanced: OnOff,
 	/** ADHD Mode (motion and sounds), its volume (0-100), and each of its sounds. */
 	genz: OnOff, volume: number,
+	/** MySpace Mode: the window as a 2005 MySpace profile, and its dark (edgy) look. */
+	myspace: OnOff, myspaceDark: OnOff,
 	soundClick: OnOff, soundTab: OnOff, soundOpen: OnOff, soundPlay: OnOff, soundBest: OnOff, soundTicks: OnOff, soundFlash: OnOff, soundCopy: OnOff,
 	animButtons: OnOff, animSwitches: OnOff, animWindow: OnOff, animPages: OnOff, animFlash: OnOff, animBars: OnOff, animPlays: OnOff, animRows: OnOff, animConfetti: OnOff, soundSurprise: OnOff, soundHorn: OnOff, surpriseOpen: OnOff,
 	/** Mute every ADHD Mode sound; play them only while the game is in front. */
@@ -49,7 +51,7 @@ export const ACCENTS: Record<Exclude<AccentId, 'custom'>, string> = {
 
 export const DEFAULTS: Settings = {
 	hotkey: 'Alt+Shift+S', view: 'plays', unit: 'm', buttons: 'solid', skillsAs: 'bar', strainAs: 'bar', strainMode: 'max', accent: 'neutral', customAccent: '#4fd1c5',
-	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', muteAll: 'off', focusOnly: 'on', atCount: 25, atMin: 0, atMax: 0, surpriseXp: 2000, hidden: [], removed: [], focused: [], share: 'ask', playlistId: 0,
+	recent: 'show', recentFor: 1, recentUnit: 'h', recentCount: 10, bestCount: 25, avgOf: 1, avgOfRecent: 0, oldOn: 'off', oldFor: 12, oldUnit: 'h', strainFor: 3, strainUnit: 'h', outdateLevel: 'on', outdatePrestige: 'on', advanced: 'off', genz: 'off', myspace: 'off', myspaceDark: 'off', volume: 50, soundClick: 'on', soundTab: 'on', soundOpen: 'on', soundPlay: 'on', soundBest: 'on', soundTicks: 'on', soundFlash: 'on', soundCopy: 'on', animButtons: 'on', animSwitches: 'on', animWindow: 'on', animPages: 'on', animFlash: 'on', animBars: 'on', animPlays: 'on', animRows: 'on', animConfetti: 'on', soundSurprise: 'on', soundHorn: 'on', surpriseOpen: 'on', muteAll: 'off', focusOnly: 'on', atCount: 25, atMin: 0, atMax: 0, surpriseXp: 2000, hidden: [], removed: [], focused: [], share: 'ask', playlistId: 0,
 };
 
 export const settingsStore = createSettings<Settings>('7k-score-tracker', DEFAULTS);
@@ -108,6 +110,8 @@ export const loadSettings = (): Settings => {
 		outdatePrestige: oneOf(s.outdatePrestige, ['off', 'on'], DEFAULTS.outdatePrestige),
 		advanced: oneOf(s.advanced, ['off', 'on'], DEFAULTS.advanced),
 		genz: oneOf(s.genz, ['off', 'on'], DEFAULTS.genz),
+		myspace: oneOf(s.myspace, ['off', 'on'], DEFAULTS.myspace),
+		myspaceDark: oneOf(s.myspaceDark, ['off', 'on'], DEFAULTS.myspaceDark),
 		volume: Number.isInteger(s.volume) && s.volume >= 0 && s.volume <= 100 ? s.volume : DEFAULTS.volume,
 		soundClick: oneOf(s.soundClick, ['off', 'on'], DEFAULTS.soundClick),
 		soundTab: oneOf(s.soundTab, ['off', 'on'], DEFAULTS.soundTab),

@@ -2,6 +2,14 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.13] - 2026-11-20
+
+### Added
+
+- MySpace Mode (Settings, below ADHD Mode): the tracker as a 2005 MySpace profile, with a Dark switch for the edgy version
+- Its profile shows your newest play, your Top 8 maps, each skill's level and XP, and a pixel icon for every skill
+- An animated background and a scrolling banner of cringe messages, with news about your #1 map, new ranked maps and the maps you farm
+
 ## [1.2.12] - 2026-11-20
 
 ### Fixed

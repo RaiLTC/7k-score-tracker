@@ -110,6 +110,8 @@ const mapCatalog = async (played: number[]): Promise<Catalog> => {
 	let next: Catalog;
 	try {
 		next = await fetchCatalog();
+		// a catalogue fetched before: its new 7K maps are news (MySpace Mode)
+		if (catalog.at) noteNewMaps(Object.keys(next.maps).map(Number).filter((id) => !catalog!.maps[id] && next.maps[id]![2] === 7), now);
 	} catch {
 		// unreachable: keep what's stored (it counts as a try)
 		next = { ...catalog, tried: now };
@@ -124,6 +126,29 @@ const mapCatalog = async (played: number[]): Promise<Catalog> => {
 	void cacheSet(CATALOG_KEY, catalog);
 	for (const key of OLD_CATALOG_KEYS) void cacheDelete(key);
 	return catalog;
+};
+
+// ---- new maps: 7K maps the catalogue didn't have before, and when they showed up (kept on this computer) ----
+
+const NEW_MAPS_KEY = '7k-score-tracker:new-maps';
+/** How many new maps are kept, and for how long they're news. */
+const NEW_MAPS_KEEP = 20, NEW_MAPS_FOR = 3 * 864e5;
+const readNewMaps = (): [number, number][] => {
+	try {
+		const v = JSON.parse(localStorage.getItem(NEW_MAPS_KEY) ?? '[]') as unknown;
+		return Array.isArray(v) ? v.filter((x): x is [number, number] => Array.isArray(x) && x.length === 2) : [];
+	} catch { return []; }
+};
+const noteNewMaps = (ids: number[], at: number) => {
+	if (!ids.length) return;
+	try { localStorage.setItem(NEW_MAPS_KEY, JSON.stringify([...ids.map((id) => [id, at]), ...readNewMaps()].slice(0, NEW_MAPS_KEEP))); } catch { /* not kept */ }
+};
+/** The songs of the 7K maps that showed up in the catalogue in the past 3 days, newest first, each once. */
+export const newMaps = async (now = Date.now()): Promise<string[]> => {
+	const recent = readNewMaps().filter(([, at]) => now - at < NEW_MAPS_FOR);
+	if (!recent.length) return [];
+	const cat = await mapCatalog([]);
+	return [...new Set(recent.map(([id]) => cat.maps[id]?.[0]).filter((t): t is string => !!t))];
 };
 
 const infoOf = (cat: Catalog, id: number): MapInfo | undefined => {

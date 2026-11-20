@@ -475,3 +475,206 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .volume { display: flex; align-items: center; gap: 10px; }
 .volume input { width: 140px; accent-color: var(--accent); }
 .volume .num { width: 34px; color: var(--muted); text-align: right; }
+
+/* ===== MySpace Mode: the window as a 2005 MySpace profile (classic blue, or dark: black, hot pink, stars). The
+   profile parts (.ms) and the two-column body only show while it's on; off, .body and .main don't change the layout. */
+.ms { display: none; }
+.body, .main { display: contents; }
+.window.myspace {
+	--bg: #fff; --card: #fff; --field: #fff; --hover: #c3dcf5; --line: #b1d0f0; --line-strong: #6699cc; --text: #000; --muted: #666; --accent-ink: #000;
+	--ms-top: #003399; --ms-nav: #6699cc; --ms-navtext: #fff; --ms-on: #ffcc00; --ms-bar: #6699cc; --ms-bartext: #fff; --ms-cell1: #b1d0f0; --ms-cell2: #d5e8fb;
+	--ms-label: #336699; --ms-hd: #ffcc99; --ms-hdtext: #ff6600; --ms-hdline: #ff9933; --ms-link: #003399; --ms-ext: #000;
+	width: min(1120px, 96vw); gap: 0; padding: 0; color: var(--text); background: #e6f0ff; border: 1px solid var(--ms-top); border-radius: 0;
+	box-shadow: 0 0 0 4px #fff, 0 24px 80px rgb(0 0 0 / 55%); font-family: Verdana, Arial, sans-serif; font-size: 11px;
+}
+.window.myspace.ms-dark-on {
+	--bg: #000; --card: #0d0d0d; --field: #111; --hover: #2a0014; --line: #330019; --line-strong: #ff0066; --text: #ddd; --muted: #999; --accent-ink: #fff;
+	--ms-top: #000; --ms-nav: #1a0010; --ms-navtext: #ff99cc; --ms-on: #fff; --ms-bar: #330019; --ms-bartext: #ff3399; --ms-cell1: #1a1a1a; --ms-cell2: #0d0d0d;
+	--ms-label: #ff3399; --ms-hd: #000; --ms-hdtext: #ff0066; --ms-hdline: #ff0066; --ms-link: #ff3399; --ms-ext: #ff0066;
+	background: #000; box-shadow: 0 0 0 4px #ff0066, 0 0 30px #ff0066;
+}
+.window.myspace .ms { display: block; }
+.window.myspace .body { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 10px; flex: 1; min-height: 0; padding: 10px; }
+.window.myspace .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.window.myspace .panels { margin-top: 8px; }
+/* the header: the logo, the icons and the search box in the blue bar; the tabs as links in the bar under it */
+.window.myspace .head { position: relative; gap: 0; padding: 0; color: #fff; background: var(--ms-top); }
+.window.myspace .title-row { padding: 6px 290px 6px 10px; }
+.window.myspace .tab-row { flex-wrap: wrap; gap: 6px; padding: 3px 10px; background: var(--ms-nav); }
+/* the search box sits in the blue bar, top right */
+.window.myspace .tab-row .search { position: absolute; top: 8px; right: 10px; width: 270px; flex: none; }
+.window.myspace .title-row .title, .window.myspace .versions { display: none; }
+.window.myspace .ms-logo { display: inline; color: #fff; font: bold 20px Arial, sans-serif; letter-spacing: -1px; white-space: nowrap; }
+.window.myspace .ms-logo small { font-size: 11px; font-weight: normal; letter-spacing: 0; }
+.window.myspace .title-row :is(.icon-btn, .close) { color: #fff; border-radius: 0; }
+.window.myspace .title-row :is(.icon-btn, .close):hover, .window.myspace .title-row .icon-btn[aria-pressed='true'] { background: rgb(255 255 255 / 18%); }
+.window.myspace .tab-row .search-field { height: 22px; padding: 0 28px 0 4px; color: #000; background: #fff; border: 1px solid #fff; border-radius: 0; font: 11px Verdana, sans-serif; }
+.window.myspace.ms-dark-on .tab-row .search-field { color: #ddd; background: #111; border-color: #ff0066; }
+.window.myspace .search-help { top: 1px; right: 1px; width: 20px; height: 20px; border-radius: 0; }
+.window.myspace .search-pop { top: 28px; border-radius: 0; }
+/* switches: plain links, the picked one bold and underlined; in the nav bar, split by | with the picked tab in yellow */
+.window.myspace .seg { gap: 0; padding: 0; background: none; border: 0; border-radius: 0; }
+.window.myspace .seg .pill { display: none; }
+.window.myspace .seg button { padding: 2px 8px; color: var(--ms-link); border-radius: 0; font-size: 11px; }
+.window.myspace .seg button:hover { text-decoration: underline; background: none; }
+.window.myspace .seg button:is([aria-selected='true'], [aria-checked='true']) { color: var(--accent) !important; background: none !important; box-shadow: none !important; font-weight: bold; text-decoration: underline; }
+.window.myspace .tab-row .seg button { padding: 2px 0; color: var(--ms-navtext); font: bold 11px Verdana, sans-serif; }
+.window.myspace .tab-row .seg button + button::before { content: '|'; margin: 0 6px; font-weight: normal; opacity: .6; }
+.window.myspace .tab-row .seg button:is([aria-selected='true'], [aria-checked='true']) { color: var(--ms-on) !important; text-decoration: none; }
+.window.myspace .tab-row [data-unit-switch]::before, .window.myspace .tab-row .btn::before, .window.myspace .ms-dark::before { content: '|'; margin-right: 6px; font-weight: normal; opacity: .6; }
+.window.myspace .tab-row .btn { min-width: 0; height: auto; padding: 0; color: var(--ms-navtext) !important; background: none !important; border: 0 !important; box-shadow: none !important; font: bold 11px Verdana, sans-serif; }
+.window.myspace .tab-row .btn:hover { text-decoration: underline; }
+.window.myspace .ms-dark { display: inline-flex; align-items: center; gap: 3px; color: var(--ms-navtext); font: bold 11px Verdana, sans-serif; cursor: pointer; }
+.window.myspace .ms-dark input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+/* buttons: grey and raised, pressed in while held */
+.window.myspace .btn { min-height: 20px; height: auto; padding: 1px 8px; color: #000 !important; background: #ddd !important; border: 2px outset #eee !important; border-radius: 0; box-shadow: none !important; font: bold 10px Verdana, sans-serif; }
+.window.myspace .btn:active { border-style: inset !important; }
+.window.myspace.ms-dark-on .btn { color: #ff99cc !important; background: #1a1a1a !important; border-color: #ff0066 !important; }
+.window.myspace :is(.num-field, .keybind) { border-radius: 0; }
+/* cards: an orange title bar, the list as a table in two blues */
+.window.myspace .card { padding: 0; background: var(--card); border: 1px solid var(--ms-hdline); border-radius: 0; }
+.window.myspace .card-head { flex-wrap: wrap; align-items: center; margin: 0; padding: 3px 6px; color: var(--ms-hdtext); background: var(--ms-hd); border: 0; border-bottom: 1px solid var(--ms-hdline); border-image: none; font: bold 11px Verdana, sans-serif; }
+.window.myspace .card-head .muted { font-weight: normal; font-size: 10px; }
+.window.myspace .list { margin: 0; }
+.window.myspace :is(.legend-list, .shared-stats, .suggest-warn) { margin: 6px; }
+.window.myspace :is(.suggest-body, .changelog-body, .debug-body) { margin: 0; padding: 6px; }
+.window.myspace .settings-box { margin: 6px; padding: 0 8px 4px; background: var(--card); border: 1px solid var(--ms-bar); border-radius: 0; }
+.window.myspace .settings-group { margin: 0 -8px; padding: 3px 8px; color: var(--ms-bartext); background: var(--ms-bar); border: 0; font-size: 11px; letter-spacing: 0; text-transform: none; }
+.window.myspace :is(.legend, .recent-best) { margin-bottom: 6px; }
+.window.myspace .list .row { min-height: 36px; padding: 0 8px; background: var(--ms-cell2); border-top: 2px solid var(--card); }
+.window.myspace .list > .row:nth-child(odd of .row) { background: var(--ms-cell1); }
+.window.myspace .list .row[role='button']:hover, .window.myspace .list .row[aria-expanded='true'], .window.myspace .list .row[aria-expanded='true'] + .detail { background: var(--hover); }
+.window.myspace .list .row.head-row { min-height: 0; padding: 3px 8px; color: var(--ms-bartext); background: var(--ms-bar); font-weight: bold; }
+.window.myspace .map > span:first-child { color: var(--ms-link); font-weight: bold; }
+/* narrower number columns, so map names keep room next to the profile */
+.window.myspace .plays .row { grid-template-columns: 60px minmax(0, 1fr) repeat(6, 46px) 96px; gap: 6px; }
+.window.myspace .best .row { grid-template-columns: 60px minmax(0, 1fr) repeat(5, 46px) 96px; gap: 6px; }
+.window.myspace .by-skill .row { grid-template-columns: 60px minmax(0, 1fr) repeat(6, 46px); gap: 6px; }
+.window.myspace .shared .row { grid-template-columns: minmax(0, 1fr) repeat(3, 46px) 60px 60px 96px; gap: 6px; }
+.window.myspace :is(.best, .plays, .by-skill) .detail { padding-left: 72px; }
+.window.myspace .best .row > :nth-child(8), .window.myspace .plays .row > :nth-child(9) { padding-left: 8px; }
+/* the Contact box only when the page has buttons */
+.ms-box:has(.ms-contact:empty) { display: none; }
+.window.myspace .row.stale .map > span:first-child { color: #6b6c75; }
+/* the left column: the profile picture, mood, song, Contact, Skills and the counter */
+.window.myspace .ms-side { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.ms-name { margin: 0 0 6px; font: bold 17px Verdana, sans-serif; }
+.glitter { color: transparent; background: linear-gradient(90deg, #ff0066, #ffcc00, #33ccff, #cc33ff, #ff0066) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; animation: ms-shine 3s linear infinite; }
+@keyframes ms-shine { to { background-position: 300% 0; } }
+.ms-prof { display: flex; gap: 8px; }
+.ms-pic { display: grid; flex: none; place-items: center; width: 96px; height: 96px; color: #fff; background: linear-gradient(135deg, #ff6600, #ffcc00); border: 1px solid #999; font: bold 28px Arial, sans-serif; }
+.ms-dark-on .ms-pic { background: #000; border: 2px solid #ff0066; filter: drop-shadow(0 0 6px #ff0066); }
+.ms-dark-on .ms-pic span { display: inline-block; animation: ms-spin 3s linear infinite; }
+@keyframes ms-spin { to { transform: rotate(360deg); } }
+.ms-info { font-size: 10px; line-height: 1.5; }
+.ms-online { color: #00cc00; font-weight: bold; animation: ms-blink 1.2s steps(1) infinite; }
+.ms-online::before { content: '● '; }
+@keyframes ms-blink { 50% { opacity: 0; } }
+.ms-mood { margin-top: 6px; font-size: 10px; }
+.ms-mood b, .ms-latest b { color: var(--accent); }
+.ms-player { margin-top: 8px; padding: 6px; color: #ddd; background: linear-gradient(#444, #111); border: 1px solid var(--ms-bar); font-size: 10px; }
+.ms-player-row { display: flex; align-items: center; gap: 6px; }
+.ms-btns { display: flex; gap: 2px; }
+.ms-btns i { width: 18px; height: 16px; color: #fff; background: #666; border: 1px outset #999; font-size: 8px; font-style: normal; line-height: 14px; text-align: center; }
+.ms-song { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.ms-song span { display: inline-block; padding-left: 100%; animation: ms-scroll 10s linear infinite; }
+@keyframes ms-scroll { to { transform: translateX(-100%); } }
+.ms-eq { display: flex; align-items: flex-end; gap: 2px; height: 14px; }
+.ms-eq i { width: 3px; background: #33ff33; animation: ms-eq .5s ease-in-out infinite alternate; }
+.ms-eq i:nth-child(2) { animation-delay: -.2s; } .ms-eq i:nth-child(3) { animation-delay: -.4s; } .ms-eq i:nth-child(4) { animation-delay: -.1s; }
+@keyframes ms-eq { from { height: 3px; } to { height: 14px; } }
+.ms-progress { height: 4px; margin-top: 4px; background: #333; }
+.ms-progress i { display: block; width: 35%; height: 100%; background: var(--accent); }
+.ms-box { margin-top: 10px; border: 1px solid var(--ms-bar); }
+.ms-bar { padding: 3px 6px; color: var(--ms-bartext); background: var(--ms-bar); font: bold 11px Verdana, sans-serif; }
+.ms-note { font-size: 9px; font-weight: normal; opacity: .8; }
+.ms-body { padding: 6px; background: var(--card); font-size: 10px; }
+.ms-contact { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+.ms-link { padding: 0; color: var(--ms-link); text-align: left; background: none; border: 0; font: 10px Verdana, sans-serif; }
+.ms-link::before { content: '▸ '; color: var(--accent); }
+.ms-link:hover, .ms-friend:hover .ms-friend-name { text-decoration: underline; }
+.ms-skills { width: 100%; border-collapse: separate; border-spacing: 2px; }
+.ms-skills td { padding: 3px 4px; color: var(--text); background: var(--ms-cell2); }
+.ms-skills td:first-child { color: var(--ms-label); background: var(--ms-cell1); font-weight: bold; white-space: nowrap; }
+.ms-skills .dot { display: inline-block; margin-right: 4px; vertical-align: -1px; }
+.ms-construction { margin-top: 10px; padding: 4px; color: #000; text-align: center; background: repeating-linear-gradient(45deg, #ffcc00 0 10px, #000 10px 20px); font: bold 10px Verdana, sans-serif; }
+.ms-construction span { padding: 1px 6px; background: #ffcc00; }
+.ms-counter { margin-top: 10px; font-size: 10px; text-align: center; }
+.ms-digits { display: inline-flex; gap: 1px; margin-top: 2px; }
+.ms-digits b { padding: 1px 3px; color: #33ff33; background: #000; border: 1px solid #555; font: bold 14px 'Courier New', monospace; }
+/* the right column over the lists: the banner, the latest play and the Top 8 */
+.window.myspace .ms-marquee { flex: none; overflow: hidden; padding: 2px 0; color: var(--ms-hdtext); white-space: nowrap; background: var(--ms-hd); border-bottom: 1px solid var(--ms-hdline); font: bold 11px 'Comic Sans MS', Verdana, sans-serif; }
+.ms-marquee span { display: inline-block; padding-left: 100%; animation: ms-scroll 16s linear infinite; }
+.ms-ext { flex: none; padding: 8px; text-align: center; border: 1px solid var(--ms-ext); font: bold 14px Verdana, sans-serif; }
+.ms-head { flex: none; margin-top: 8px; padding: 3px 6px; color: var(--ms-hdtext); background: var(--ms-hd); border: 1px solid var(--ms-hdline); font: bold 11px Verdana, sans-serif; }
+.ms-latest { flex: none; padding: 5px 2px; font-size: 10px; }
+.window.myspace .ms-top8 { display: grid; flex: none; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; padding: 6px 0 0; }
+.ms-friend { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 0; color: var(--ms-link); background: none; border: 0; font: 10px Verdana, sans-serif; }
+.ms-thumb { display: grid; place-items: center; width: 52px; height: 52px; color: #fff; border: 1px solid #999; font: bold 14px Arial, sans-serif; text-shadow: 0 1px 2px rgb(0 0 0 / 50%); }
+.ms-dark-on .ms-thumb { background: #111 !important; border-color: #ff0066; font-size: 24px; }
+.ms-friend-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-end { flex: none; margin-top: 6px; color: var(--accent); text-align: center; font: italic 12px Georgia, serif; }
+.window.myspace .ms-foot { flex: none; padding: 5px; color: var(--muted); text-align: center; background: var(--bg); border-top: 1px solid var(--line-strong); font-size: 9px; }
+/* the sparkle trail */
+.ms-sparkle { position: absolute; z-index: 30; font-size: 12px; pointer-events: none; animation: ms-fall .8s ease-out forwards; }
+@keyframes ms-fall { to { opacity: 0; transform: translateY(18px) scale(.3); } }
+@media (prefers-reduced-motion: reduce) { .window.myspace .ms *, .window.myspace .ms { animation: none !important; } .ms-marquee span, .ms-song span { padding-left: 0; } }
+
+
+/* MySpace Mode's skills: a 9x9 pixel icon each in place of the colour dot, and 2005 web-safe colours for the bars
+   (square, outlined, in 8 steps: --h8 is the bar's height rounded up to the next eighth) */
+.window.myspace .dot { width: 14px; height: 14px; background-color: transparent !important; background-position: center; background-size: contain; background-repeat: no-repeat; border-radius: 0; image-rendering: pixelated; }
+.window.myspace.ms-dark-on .dot { filter: drop-shadow(0 0 2px var(--c)); }
+.window.myspace .skills { gap: 2px; }
+.window.myspace .skills i { height: var(--h8) !important; min-height: 3px; border: 1px solid #000; border-radius: 0; }
+.window.myspace .skills i:not([class]) { height: 3px !important; background: #ccc; border-color: #999; }
+.window.myspace.ms-dark-on .skills i { border-color: rgb(255 255 255 / 20%); box-shadow: 0 0 3px var(--c); }
+.window.myspace.ms-dark-on .skills i:not([class]) { background: #222; border-color: #333; box-shadow: none; }
+.window.myspace .sk-accuracy { --c: #ff0000; background-color: #ff0000; }
+.window.myspace .tx-accuracy { color: #ff0000; }
+.window.myspace .dot.sk-accuracy { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM3 2h3v1h-3zM8 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM3 6h3v1h-3zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM3 2h3v1h-3zM8 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM0 6h1v1h-1zM3 6h3v1h-3zM8 6h1v1h-1zM1 7h1v1h-1zM7 7h1v1h-1zM2 8h5v1h-5z' fill='%23ff0000'/%3E%3C/svg%3E"); }
+.window.myspace .sk-speed { --c: #ffcc00; background-color: #ffcc00; }
+.window.myspace .tx-speed { color: #ffcc00; }
+.window.myspace .dot.sk-speed { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M5 0h3v1h-3zM4 1h3v1h-3zM3 2h3v1h-3zM2 3h6v1h-6zM4 4h3v1h-3zM3 5h3v1h-3zM2 6h3v1h-3zM1 7h2v1h-2zM1 8h1v1h-1z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M5 0h3v1h-3zM4 1h3v1h-3zM3 2h3v1h-3zM2 3h6v1h-6zM4 4h3v1h-3zM3 5h3v1h-3zM2 6h3v1h-3zM1 7h2v1h-2zM1 8h1v1h-1z' fill='%23ffcc00'/%3E%3C/svg%3E"); }
+.window.myspace .sk-stamina { --c: #33cc33; background-color: #33cc33; }
+.window.myspace .tx-stamina { color: #33cc33; }
+.window.myspace .dot.sk-stamina { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M0 2h7v1h-7zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h2v1h-2zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h3v1h-3zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h3v1h-3zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h2v1h-2zM0 7h7v1h-7z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M0 2h7v1h-7zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h2v1h-2zM0 4h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM6 4h3v1h-3zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h3v1h-3zM0 6h1v1h-1zM2 6h1v1h-1zM4 6h1v1h-1zM6 6h2v1h-2zM0 7h7v1h-7z' fill='%2333cc33'/%3E%3C/svg%3E"); }
+.window.myspace .sk-jacks { --c: #ff6600; background-color: #ff6600; }
+.window.myspace .tx-jacks { color: #ff6600; }
+.window.myspace .dot.sk-jacks { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M2 0h5v1h-5zM2 1h5v1h-5zM2 3h5v1h-5zM2 4h5v1h-5zM2 6h5v1h-5zM2 7h5v1h-5z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M2 0h5v1h-5zM2 1h5v1h-5zM2 3h5v1h-5zM2 4h5v1h-5zM2 6h5v1h-5zM2 7h5v1h-5z' fill='%23ff6600'/%3E%3C/svg%3E"); }
+.window.myspace .sk-independence { --c: #ff66cc; background-color: #ff66cc; }
+.window.myspace .tx-independence { color: #ff66cc; }
+.window.myspace .dot.sk-independence { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M0 0h2v1h-2zM0 1h2v1h-2zM6 1h2v1h-2zM6 2h2v1h-2zM0 3h2v1h-2zM0 4h2v1h-2zM6 4h2v1h-2zM6 5h2v1h-2zM0 6h2v1h-2zM0 7h2v1h-2zM6 7h2v1h-2z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M0 0h2v1h-2zM0 1h2v1h-2zM6 1h2v1h-2zM6 2h2v1h-2zM0 3h2v1h-2zM0 4h2v1h-2zM6 4h2v1h-2zM6 5h2v1h-2zM0 6h2v1h-2zM0 7h2v1h-2zM6 7h2v1h-2z' fill='%23ff66cc'/%3E%3C/svg%3E"); }
+.window.myspace .sk-ln { --c: #9933ff; background-color: #9933ff; }
+.window.myspace .tx-ln { color: #9933ff; }
+.window.myspace .dot.sk-ln { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M2 0h5v1h-5zM2 1h5v1h-5zM3 2h3v1h-3zM3 3h3v1h-3zM3 4h3v1h-3zM3 5h3v1h-3zM3 6h3v1h-3zM2 7h5v1h-5zM2 8h5v1h-5z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M2 0h5v1h-5zM2 1h5v1h-5zM3 2h3v1h-3zM3 3h3v1h-3zM3 4h3v1h-3zM3 5h3v1h-3zM3 6h3v1h-3zM2 7h5v1h-5zM2 8h5v1h-5z' fill='%239933ff'/%3E%3C/svg%3E"); }
+.window.myspace .sk-technical { --c: #999999; background-color: #999999; }
+.window.myspace .tx-technical { color: #999999; }
+.window.myspace .dot.sk-technical { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M3 0h1v1h-1zM5 0h1v1h-1zM1 1h7v1h-7zM1 2h2v1h-2zM6 2h2v1h-2zM0 3h3v1h-3zM4 3h1v1h-1zM6 3h3v1h-3zM1 4h1v1h-1zM3 4h3v1h-3zM7 4h1v1h-1zM0 5h3v1h-3zM4 5h1v1h-1zM6 5h3v1h-3zM1 6h2v1h-2zM6 6h2v1h-2zM1 7h7v1h-7zM3 8h1v1h-1zM5 8h1v1h-1z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M3 0h1v1h-1zM5 0h1v1h-1zM1 1h7v1h-7zM1 2h2v1h-2zM6 2h2v1h-2zM0 3h3v1h-3zM4 3h1v1h-1zM6 3h3v1h-3zM1 4h1v1h-1zM3 4h3v1h-3zM7 4h1v1h-1zM0 5h3v1h-3zM4 5h1v1h-1zM6 5h3v1h-3zM1 6h2v1h-2zM6 6h2v1h-2zM1 7h7v1h-7zM3 8h1v1h-1zM5 8h1v1h-1z' fill='%23999999'/%3E%3C/svg%3E"); }
+.window.myspace .sk-focus { --c: #3399ff; background-color: #3399ff; }
+.window.myspace .tx-focus { color: #3399ff; }
+.window.myspace .dot.sk-focus { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M2 1h5v1h-5zM1 2h2v1h-2zM6 2h2v1h-2zM0 3h2v1h-2zM4 3h1v1h-1zM7 3h2v1h-2zM0 4h1v1h-1zM3 4h3v1h-3zM8 4h1v1h-1zM0 5h2v1h-2zM4 5h1v1h-1zM7 5h2v1h-2zM1 6h2v1h-2zM6 6h2v1h-2zM2 7h5v1h-5z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M2 1h5v1h-5zM1 2h2v1h-2zM6 2h2v1h-2zM0 3h2v1h-2zM4 3h1v1h-1zM7 3h2v1h-2zM0 4h1v1h-1zM3 4h3v1h-3zM8 4h1v1h-1zM0 5h2v1h-2zM4 5h1v1h-1zM7 5h2v1h-2zM1 6h2v1h-2zM6 6h2v1h-2zM2 7h5v1h-5z' fill='%233399ff'/%3E%3C/svg%3E"); }
+.window.myspace .sk-sv { --c: #00cccc; background-color: #00cccc; }
+.window.myspace .tx-sv { color: #00cccc; }
+.window.myspace .dot.sk-sv { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM7 2h2v1h-2zM0 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM4 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM2 7h5v1h-5z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M2 0h5v1h-5zM1 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM7 2h2v1h-2zM0 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM5 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM4 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM7 6h1v1h-1zM2 7h5v1h-5z' fill='%2300cccc'/%3E%3C/svg%3E"); }
+.window.myspace .sk-memory { --c: #ff99cc; background-color: #ff99cc; }
+.window.myspace .tx-memory { color: #ff99cc; }
+.window.myspace .dot.sk-memory { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 11 11' shape-rendering='crispEdges'%3E%3Cpath d='M2 1h2v1h-2zM5 1h2v1h-2zM1 2h1v1h-1zM4 2h1v1h-1zM7 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM4 6h1v1h-1zM7 6h1v1h-1zM2 7h2v1h-2zM5 7h2v1h-2zM4 8h1v1h-1z' fill='%230006' transform='translate%28.5 .5%29'/%3E%3Cpath d='M2 1h2v1h-2zM5 1h2v1h-2zM1 2h1v1h-1zM4 2h1v1h-1zM7 2h1v1h-1zM0 3h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM8 3h1v1h-1zM0 4h1v1h-1zM3 4h1v1h-1zM5 4h1v1h-1zM8 4h1v1h-1zM0 5h1v1h-1zM2 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM8 5h1v1h-1zM1 6h1v1h-1zM4 6h1v1h-1zM7 6h1v1h-1zM2 7h2v1h-2zM5 7h2v1h-2zM4 8h1v1h-1z' fill='%23ff99cc'/%3E%3C/svg%3E"); }
+
+/* MySpace Mode's animated background, under everything (its own clipped layer, so Make a Playlist outside the window
+   still shows): classic, pixel hearts and stars sliding diagonally; dark, pixel hearts and skulls falling while the
+   black pulses pink. Tiles move by transform, one tile per loop, so nothing is painted again as they move. */
+.window.myspace .ms-bgwrap { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.window.myspace > :not(.ms-bgwrap, .share-veil, .pick-pop, .pick-menu, .sent-note, .confetti, .party-note, .ms-sparkle) { position: relative; z-index: 1; }
+.ms-bg { position: absolute; inset: -60px; will-change: transform; }
+.window.myspace .ms-bg { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' shape-rendering='crispEdges'%3E%3Cpath fill='%23ff99cc' d='M4 6h2v1h1V6h2v3H8v1H7v1H6v-1H5V9H4z'/%3E%3Cpath fill='%2399ccff' d='M27 22h1v2h2v1h-2v2h-1v-2h-2v-1h2z'/%3E%3C/svg%3E") 0 0 / 40px 40px; animation: ms-slide 4s linear infinite; }
+.window.myspace .ms-bg2 { display: none; }
+@keyframes ms-slide { to { transform: translate(40px, 40px); } }
+.window.myspace.ms-dark-on .ms-bgwrap::before { content: ''; position: absolute; inset: 0; background: #1a0010; animation: ms-pulse 4s ease-in-out infinite alternate; }
+@keyframes ms-pulse { from { opacity: 0; } to { opacity: 1; } }
+.window.myspace.ms-dark-on .ms-bg { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' shape-rendering='crispEdges'%3E%3Cpath fill='%23ff0066' d='M6 8h2v1h1V8h2v3h-1v1H9v1H8v-1H7v-1H6z'/%3E%3Cpath fill='%23ffffff' opacity='.8' d='M38 36h5v1h1v3h-1v1h-1v1h-3v-1h-1v-1h-1v-3h1zM39 38v1h1v-1zM41 38v1h1v-1z'/%3E%3C/svg%3E") 0 0 / 60px 60px; animation: ms-fall60 5s linear infinite; }
+.window.myspace.ms-dark-on .ms-bg2 { display: block; background-position: 30px 20px; opacity: .5; animation-duration: 8s; }
+@keyframes ms-fall60 { to { transform: translateY(60px); } }
+@media (prefers-reduced-motion: reduce) { .window.myspace .ms-bg, .window.myspace .ms-bgwrap::before { animation: none !important; } }
+/* the header over the body: the search help opens down over the lists */
+.window.myspace > .head { z-index: 3; }
