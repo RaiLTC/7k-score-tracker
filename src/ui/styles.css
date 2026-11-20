@@ -198,17 +198,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .shared .row > :nth-child(n+2):nth-child(-n+6) { text-align: center; }
 .shared .card-head .shared-status { margin-left: auto; }
 /* Shared's statistics bar */
-.shared-stats { display: flex; gap: 8px; margin: 0 0 8px; }
-/* every box the same width, filling the row: none changes size as its numbers or countdown change */
-.shared-stats > span { flex: 1 1 0; min-width: 0; justify-content: center; white-space: nowrap; }
-.shared-stats span { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; color: var(--muted); background: color-mix(in srgb, var(--text) 3%, transparent); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; }
+.shared-stats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.shared-stats > span { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
+/* each box as wide as its words plus a fixed room for its number (same-width digits), the space left shared out
+   evenly: none clips, and none changes size as its number or countdown changes */
+.shared-stats b { font-variant-numeric: tabular-nums; text-align: right; }
+.shared-stats [data-stat="you"], .shared-stats [data-stat="pool"] { min-width: 5ch; }
+.shared-stats [data-stat="players"], .shared-stats [data-stat="next"] { min-width: 3ch; }
+.shared-stats [data-stat="rate"] { min-width: 4ch; }
+.shared-stats [data-stat="next-in"] { min-width: 7ch; }
+.shared-stats [data-stat="fetch"] { min-width: 5ch; }
+.shared-stats span { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 8px; color: var(--muted); background: color-mix(in srgb, var(--text) 3%, transparent); border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; }
 .shared-stats b { color: var(--text); font-size: 13px; font-weight: 600; }
 .shared-stats [hidden] { display: none; }
-/* Next batch has the most to say: a bit wider, still a fixed share of the row */
-.shared-stats > [data-next-batch] { flex-grow: 1.5; }
 /* the countdowns: same-width digits */
 .shared-stats [data-next-batch] b, .shared-stats i { font-style: normal; font-variant-numeric: tabular-nums; }
-.shared-stats [data-next-batch] b { min-width: 3ch; text-align: right; }
 /* the fetch's countdown: grey at 01:00 until the batch goes, then counting down */
 .shared-stats [data-fetch] b { font-variant-numeric: tabular-nums; }
 .shared-stats [data-fetch].idle b { color: var(--muted); }

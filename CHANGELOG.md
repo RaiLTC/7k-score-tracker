@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.11] - 2026-11-20
+
+### Fixed
+
+- Size Shared's numbers boxes to fit what they say, so none is cut off or left mostly empty
+
 ## [1.2.10] - 2026-11-19
 
 ### Fixed
