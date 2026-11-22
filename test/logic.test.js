@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agoText, allTimeBest, bestBySkill, bestMaps, dayOf, is7kPlay, parseGains, parseSearch, playedIn, searching, timeOf, totalOf, xpText } from '../src/rules/logic.js';
+import { agoText, allTimeBest, bestBySkill, bestMaps, dayOf, is7kPlay, parseGains, parseSearch, playedIn, searching, shareOf, timeOf, totalOf, xpText } from '../src/rules/logic.js';
 import { arrowsOf, restedStrain, strainPerMinute, strainWhenSet } from '../src/rules/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
@@ -200,4 +200,13 @@ test('All Time Highest: each map\'s best play ever by XP a minute, other rates i
 	assert.equal(ever[0].others[0].lastXp, 900);
 	assert.equal(ever[0].others[0].n, 2);
 	assert.equal(ever[0].prevXp, 0);
+});
+
+test('the picked skills\' share of a map\'s XP: all of it with none picked, only theirs otherwise', () => {
+	const gains = { focus: 300, ln: 600, speed: 100 };
+	assert.equal(shareOf(gains, []), 1);
+	assert.equal(shareOf(gains, ['focus']), 0.3);
+	assert.equal(shareOf(gains, ['focus', 'ln']), 0.9);
+	assert.equal(shareOf(gains, ['jacks']), 0);
+	assert.equal(shareOf({}, ['focus']), 0);
 });

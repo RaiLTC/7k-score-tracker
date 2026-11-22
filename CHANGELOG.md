@@ -2,6 +2,13 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.14] - 2026-11-22
+
+### Changed
+
+- Shared: with skills focused in the Skills box, show and sort maps by only those skills' base XP, and drop maps that give them none
+- Skills tab: rank maps by base XP, so upgrades and fatigue no longer change the order (plays without a base XP, such as fatigued ones, are left out)
+
 ## [1.2.13] - 2026-11-20
 
 ### Added

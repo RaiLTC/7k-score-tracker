@@ -10,7 +10,7 @@ import { noteThrone } from './game/myspace.js';
 import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, newMaps, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
 import { hotkeyMatches } from './rules/hotkey.js';
-import { agoText, allTimeBest, type BestEver, bestBySkill, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, SKILLS_7K, topSkills, totalOf, xpText } from './rules/logic.js';
+import { agoText, allTimeBest, type BestEver, bestBySkill, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, shareOf, SKILLS_7K, topSkills, totalOf, xpText } from './rules/logic.js';
 import { accentOf, ACCENTS, ALL_TIME_COUNT, DEFAULTS, hotkeyLabel, hotkeyOf, loadSettings, NUMBER_MAX, NUMBER_MIN, NUMBER_SETTINGS, oldMs, recentMs, settingsStore, strainMs, wholeOf, type AccentId, type Settings, type View } from './settings.js';
 import { MINDBLOCK_FREE, type PeakMap, peakMinutes, planToPeak, strainBar } from './rules/peak.js';
 import { arrowsOf } from './rules/strain.js';
@@ -328,6 +328,12 @@ export class Tracker extends Addon {
 			return maps.filter((m) => (!focused.length || topSkills(m.gains).some((sk) => focused.includes(sk)))
 				&& !hidden.includes(mainSkill(m.gains)) && !topSkills(m.gains).some((sk) => removed.includes(sk)));
 		};
+		/** The plays with their XP as base XP (the ones it can be worked out for), worked out once per read of the plays. */
+		let based: { from: Play[], plays: Play[] } | undefined;
+		const basedOf = (list: Play[]) => {
+			if (based?.from !== list) based = { from: list, plays: basePlays(list).flatMap((b) => ('base' in b ? [{ ...b.play, gains: b.base, total: totalOf(b.base) }] : [])) };
+			return based.plays;
+		};
 		/** Recent plays are drawn 50 at a time; scrolling near the end adds the next 50. */
 		let playsShown = PLAYS_BATCH;
 		/** The tabs drawn from the current plays; the others are drawn when they're opened. */
@@ -476,7 +482,10 @@ export class Tracker extends Addon {
 			} else if (page === 'shared') {
 				drawShared();
 			} else {
-				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? timed.filter((p) => p.playedAt >= now - oldMs(s)) : timed, s.avgOf)), s.unit, since, TEXT.stale(title),
+				// base XP (your bonuses, fatigue and mindblock taken out), so upgrades and fatigue don't change the order;
+				// plays it can't be worked out for are left out
+				const based = basedOf(plays), timedBase = query.time ? based.filter((p) => playedIn(query, p.playedAt)) : based;
+				skillsList.innerHTML = bySkillHtml(keepMaps(bestMaps(s.oldOn === 'on' ? timedBase.filter((p) => p.playedAt >= now - oldMs(s)) : timedBase, s.avgOf)), s.unit, since, TEXT.stale(title),
 					// a skill with no maps left after old plays are left out shows grayed out (not while searching)
 					s.oldOn === 'on' && !searching(query) ? TEXT.noSkillPlays(TEXT.recentTitle(s.oldFor, s.oldUnit)) : '',
 					(m, skill) => outdatedFor(levelHistory(), skill, m.lastAt, outdateBy));
@@ -656,12 +665,18 @@ export class Tracker extends Addon {
 		const drawShared = () => {
 			const s = this.settings, { table, infos } = sharedState, status = $('[data-shared-status]');
 			if (!table) { sharedList.innerHTML = messageHtml(sharedState.loading ? TEXT.sharedLoading : TEXT.sharedOffline, !sharedState.loading); status.textContent = ''; return; }
+			// with skills focused in the Skills box, only their XP counts: each number is the focused skills' share of it,
+			// the list sorts by that, and maps that give them none drop out
+			const { focused, hidden, removed } = s;
+			const part = (g: Play['gains']) => shareOf(g, focused);
 			// your own XP per minute at each map and rate (your latest play there)
-			const yours = new Map((plays ? bestMaps(plays, 1) : []).map((m) => [`${m.beatmapId}@${m.rate}`, m.perMinute]));
-			const rows: SharedRow[] = table.maps.map((m) => ({ ...m, info: infos[m.map], you: yours.get(`${m.map}@${m.rate}`) ?? 0, mapPlayers: m.mapPlayers ?? m.players }))
-				.filter((m) => !searching(query) || fitsSearch(query, m.info, m.map, m.rate, m.base));
-			// songs, their difficulties, each difficulty's rates (the Skills box's focus and hiding go by each rate's skills)
-			const songs = sharedSongs(shownSkills(rows.map((r) => ({ ...r, gains: r.base }))));
+			const yours = new Map((plays ? bestMaps(plays, 1) : []).map((m) => [`${m.beatmapId}@${m.rate}`, m.perMinute * part(m.gains)]));
+			const rows: SharedRow[] = table.maps.map((m) => ({ ...m, perMinute: m.perMinute * part(m.base), info: infos[m.map], you: yours.get(`${m.map}@${m.rate}`) ?? 0, mapPlayers: m.mapPlayers ?? m.players }))
+				.filter((m) => (!searching(query) || fitsSearch(query, m.info, m.map, m.rate, m.base)) && m.perMinute > 0
+					// hidden skills as elsewhere: a hidden main skill, or a removed skill among the top 2
+					&& !hidden.includes(mainSkill(m.base)) && !topSkills(m.base).some((sk) => removed.includes(sk)));
+			// songs, their difficulties, each difficulty's rates
+			const songs = sharedSongs(rows);
 			sharedSongsList = songs;
 			sharedList.innerHTML = sharedHtml(songs, s.unit, s.skillsAs, searching(query) ? TEXT.noMatch : TEXT.sharedNone, 0, sharedShown);
 			status.textContent = TEXT.sharedUpdated(agoText(Date.now() - table.fetched), songs.length);

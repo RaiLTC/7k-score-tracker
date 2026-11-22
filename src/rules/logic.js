@@ -29,6 +29,16 @@ export const parseGains = (text) => {
 /** @param {Gains} gains */
 export const totalOf = (gains) => SKILLS_7K.reduce((t, sk) => t + num(gains[sk]), 0);
 
+/**
+ * The share of a map's XP that the picked skills give: 1 with none picked (all of it), 0 for a map without XP.
+ * @param {Gains} gains @param {readonly string[]} skills
+ */
+export const shareOf = (gains, skills) => {
+	if (!skills.length) return 1;
+	const all = totalOf(gains);
+	return all > 0 ? skills.reduce((t, sk) => t + num(gains[sk]), 0) / all : 0;
+};
+
 /** A map plays in one mode: 7K when the catalogue gives it 7 keys; for a map it doesn't know, when the XP has a
  *  7K-only skill. @param {MapInfo | undefined} info @param {Gains} gains */
 export const is7kPlay = (info, gains) => (info ? info.keys === 7 : ONLY_7K.some((sk) => num(gains[sk]) > 0));

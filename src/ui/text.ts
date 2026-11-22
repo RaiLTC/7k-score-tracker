@@ -399,7 +399,7 @@ export const TEXT = {
 	bySkill: 'Skills',
 	/** The view tabs, top left */
 	tabs: { plays: 'Recent', best: 'Effective Maps', skills: 'Skills', suggest: 'Strain', shared: 'Shared' },
-	bySkillNote: 'The 5 maps that gave each skill the most XP',
+	bySkillNote: 'The 5 maps that give each skill the most base XP (bonuses, fatigue and mindblock taken out)',
 	suggest: 'Suggest',
 	suggestTitle: 'Strain',
 	suggestNote: 'Your maps with the most XP per minute, by how they move your strain',
