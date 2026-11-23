@@ -349,6 +349,7 @@ export const TEXT = {
 	statYou: 'You shared',
 	statPool: 'Total shared pool',
 	statPlayers: 'Players sharing',
+	statPlayersAll: (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'player has' : 'players have'} shared`,
 	statRate: 'Shared plays/m',
 	statNext: 'Next batch',
 	statNextIn: (t: string) => `in ${t}`,

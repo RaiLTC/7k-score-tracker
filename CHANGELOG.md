@@ -2,6 +2,12 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.15] - 2026-11-23
+
+### Changed
+
+- Shared: Players sharing shows the players who shared in the past 10 minutes; hover it for the total
+
 ## [1.2.14] - 2026-11-22
 
 ### Changed

@@ -162,7 +162,7 @@ export class Tracker extends Addon {
 					<section class="card suggest" hidden><div class="card-head"><span class="title">${TEXT.suggestTitle}</span><span class="muted">${TEXT.suggestNote}</span><span class="suggest-from">${choice('strainMode', TEXT.strainMode, TEXT.strainModeOptions)}</span><button type="button" class="btn small suggest-now" data-action="suggest" title="${TEXT.suggestHelp}">${TEXT.suggest}</button></div>
 						<div class="suggest-warn">${TEXT.suggestWarn}</div>
 						<div class="suggest-body" data-suggest>${messageHtml(TEXT.suggestFirst)}</div></section>
-					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span><button type="button" class="btn small" data-action="pick-open">${TEXT.pickOpen}</button></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span><span data-fetch class="idle">${TEXT.statFetch}<b data-stat="fetch">01:00</b></span></div><div class="list" data-list="shared"></div></section>
+					<section class="card shared" hidden><div class="card-head"><span class="title">${TEXT.shared}</span><span class="muted">${TEXT.sharedNote}</span><span class="muted shared-status" data-shared-status></span><button type="button" class="btn small" data-action="pick-open">${TEXT.pickOpen}</button></div><div class="shared-stats"><span>${TEXT.statYou}<b data-stat="you">–</b></span><span>${TEXT.statPool}<b data-stat="pool">–</b></span><span data-stat-players>${TEXT.statPlayers}<b data-stat="players">–</b></span><span>${TEXT.statRate}<b data-stat="rate">–</b></span><span data-next-batch hidden>${TEXT.statNext}<b data-stat="next">0</b><i data-stat="next-in"></i></span><span data-fetch class="idle">${TEXT.statFetch}<b data-stat="fetch">01:00</b></span></div><div class="list" data-list="shared"></div></section>
 					<section class="card debug" hidden><div class="card-head"><span class="title">${TEXT.debug}</span><span class="muted">${TEXT.debugNote}</span><button type="button" class="btn small copy-all" data-action="advanced" aria-pressed="false" title="${TEXT.advancedHelp}">${TEXT.advanced}</button><button type="button" class="btn small" data-action="copy" data-copy="all">${TEXT.copyAll}</button></div><div class="debug-body" data-debug></div></section>
 					<section class="card changelog" hidden><div class="card-head"><span class="title">${TEXT.changelog}</span><span class="muted">${TEXT.changelogNote}</span></div><div class="changelog-body" data-changelog></div></section>
 					<section class="card settings" hidden><div class="card-head"><span class="title">${TEXT.settings}</span></div>
@@ -779,7 +779,10 @@ export class Tracker extends Addon {
 			$('[data-stat="pool"]').textContent = st ? shortCount(st.plays) : '–';
 			// the exact number on hover
 			$('[data-stat="pool"]').parentElement!.title = st ? st.plays.toLocaleString('en-US') : '';
-			$('[data-stat="players"]').textContent = st ? st.players.toLocaleString('en-US') : '–';
+			// sharing now (the past 10 minutes), the total when hovered; only the total from a server that doesn't count them
+			$('[data-stat="players"]').textContent = st ? (st.now ?? st.players).toLocaleString('en-US') : '–';
+			const players = $('[data-stat-players]');
+			if (st && st.now !== undefined) players.title = TEXT.statPlayersAll(st.players); else players.removeAttribute('title');
 			// the next batch: what everyone shared in the past 10 minutes
 			$('[data-stat="next"]').textContent = st ? st.last10.toLocaleString('en-US') : '–';
 			$('[data-stat="rate"]').textContent = st ? (st.lastHour / 60).toFixed(st.lastHour < 600 ? 1 : 0) : '–';

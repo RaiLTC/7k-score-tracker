@@ -164,7 +164,8 @@ export const fetchTable = async (force = false): Promise<SharedTable | null> => 
 };
 
 /** The pool's numbers: every play shared, the players, and how many arrived in the past hour and 10 minutes. */
-export type SharedStats = { plays: number, players: number, lastHour: number, last10: number };
+/** `now`: the players whose plays arrived in the past 10 minutes (undefined from a server that doesn't count them). */
+export type SharedStats = { plays: number, players: number, now?: number, lastHour: number, last10: number };
 let stats: { at: number, value: SharedStats | null } = { at: 0, value: null };
 /** The pool's numbers, asked for again at most every 30 seconds (the last ones when the server can't be reached). */
 export const fetchStats = async (): Promise<SharedStats | null> => {
@@ -174,7 +175,7 @@ export const fetchStats = async (): Promise<SharedStats | null> => {
 		const res = await fetch(`${SHARED_URL}/v1/health`, { cache: 'no-store' });
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
 		const body = await res.json() as Partial<SharedStats>;
-		stats.value = { plays: num(body.plays), players: num(body.players), lastHour: num(body.lastHour), last10: num(body.last10) };
+		stats.value = { plays: num(body.plays), players: num(body.players), now: body.now === undefined ? undefined : num(body.now), lastHour: num(body.lastHour), last10: num(body.last10) };
 	} catch { /* the last ones */ }
 	return stats.value;
 };
