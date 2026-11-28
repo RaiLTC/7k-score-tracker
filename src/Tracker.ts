@@ -4,10 +4,10 @@
 
 import { Addon, buildMeta, gameHost, HotkeyManager, isolateInput, keepFocus } from '@oss-idle/addon-sdk';
 import { createGenZ } from './ui/genz.js';
-import { type SharedStats, type SharedTable, FETCH_AFTER, fetchIn, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, tableDue, takeNote } from './game/shared.js';
+import { type SharedStats, type SharedTable, FETCH_AFTER, fetchIn, fetchStats, fetchTable, nextSendAt, sendBatch, sentCount, waitingCount, sharedInfos, sharedTable, startSharing, tableDue, takeNote, sentUpTo, type CharacterPlays } from './game/shared.js';
 import { noteSurprise, surprised } from './game/surprise.js';
 import { noteThrone } from './game/myspace.js';
-import { TrackerError, allTime7k, basePlays, debugData, debugPlay, latestMark, levelHistory, newMaps, noteStrain, recent7k, savePlaylist, strainNow, strainOf, strainWaiting } from './game/data.js';
+import { allTime7k, basePlays, type CharacterInfo, characterList, debugData, debugPlay, gameCharacterId, latestMark, levelHistory, newMaps, noteStrain, recent7k, savePlaylist, sevenKCharacters, shownCharacter, strainNow, strainOf, strainWaiting, TrackerError, viewCharacter } from './game/data.js';
 import { outdatedFor } from './rules/outdated.js';
 import { hotkeyMatches } from './rules/hotkey.js';
 import { agoText, allTimeBest, type BestEver, bestBySkill, bestMaps, fitsSearch, mainSkill, type MapInfo, type MapStats, num, parseSearch, type Play, playedIn, type Search, searching, shareOf, SKILLS_7K, topSkills, totalOf, xpText } from './rules/logic.js';
@@ -108,6 +108,7 @@ export class Tracker extends Addon {
 					<div class="title-row">
 						<span class="ms ms-logo" aria-hidden="true">7KST<small>.com</small> <small>| a place for 7K plays</small></span>
 						<span class="title">${TEXT.name}</span><span class="versions" data-versions></span>
+						<span class="char-switch" data-char-switch hidden><button type="button" class="char-btn" data-action="char-menu" aria-haspopup="menu" aria-expanded="false"><span data-char-name></span><span class="gen" data-char-gen></span><span class="caret" aria-hidden="true">▾</span></button><div class="pick-menu char-menu" role="menu" aria-label="${TEXT.charSwitch}" data-char-menu hidden></div></span>
 						<span class="spacer"></span>
 						<button type="button" class="icon-btn" data-action="debug" aria-label="${TEXT.debug}" title="${TEXT.debug}" aria-pressed="false">${BUG}</button>
 						<button type="button" class="icon-btn" data-action="changelog" aria-label="${TEXT.changelog}" title="${TEXT.changelog}" aria-pressed="false">${NEWS}</button>
@@ -803,10 +804,22 @@ export class Tracker extends Addon {
 			box.classList.toggle('idle', left === null);
 			$('[data-stat="fetch"]').textContent = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
 		};
-		/** Sends what's waiting when a batch is due, then counts what's left (and shows the note). */
+		/** Every character's plays to share: the shown one's as read (`list`), the others' since what they last sent (and a
+		 *  day before it, as a play's base XP looks at the plays before it). */
+		const sharedFrom = async (list: Play[]): Promise<CharacterPlays[]> => {
+			const shown = shownCharacter(), all: CharacterPlays[] = [[shown, list]];
+			for (const id of await sevenKCharacters().catch(() => [])) {
+				if (id === shown) continue;
+				const plays = await recent7k(gameApi(), id, Math.max(0, sentUpTo(id) - 864e5)).catch(() => null);
+				if (plays?.length) all.push([id, plays]);
+			}
+			return all;
+		};
+		/** Sends what's waiting when a batch is due (every character's plays), then counts what's left (and shows the note). */
 		const shareNow = async (list: Play[]) => {
-			const n = await sendBatch(list);
-			waiting = waitingCount(list);
+			const all = await sharedFrom(list);
+			const n = await sendBatch(all);
+			waiting = waitingCount(all);
 			if (n && !win.hidden) showSent(n);
 			showPool();
 			if (n) $('[data-stat="you"]').textContent = sentCount().toLocaleString('en-US');
@@ -956,6 +969,27 @@ export class Tracker extends Addon {
 		};
 
 		const gameApi = () => (this.host as { api?: Api } | undefined)?.api ?? (globalThis as { ossIdle?: { api?: Api } }).ossIdle?.api;
+		// the character switcher (title bar): shown with two or more characters with 7K plays; the game's character
+		// first (In game), then the rest, newest generation first
+		const charSwitch = $('[data-char-switch]'), charMenu = $('[data-char-menu]'), charButton = $('[data-action="char-menu"]');
+		let characters: CharacterInfo[] = [];
+		const charName = (c: CharacterInfo) => esc(c.name || TEXT.charUnknown(c.id));
+		const drawSwitcher = async () => {
+			characters = await characterList().catch(() => characters);
+			const inGame = gameCharacterId(), shown = shownCharacter();
+			characters.sort((a, b) => Number(b.id === inGame) - Number(a.id === inGame) || b.generation - a.generation);
+			charSwitch.hidden = characters.length < 2;
+			const now = characters.find((c) => c.id === shown);
+			$('[data-char-name]').innerHTML = now ? charName(now) : '';
+			$('[data-char-gen]').textContent = now ? TEXT.charGen(now.generation) : '';
+			charMenu.innerHTML = characters.map((c) => `<button type="button" role="menuitemradio" aria-checked="${c.id === shown}" data-char="${c.id}">${charName(c)}${c.id === inGame ? `<span class="now">${TEXT.charInGame}</span>` : ''}<span class="gen">${TEXT.charGen(c.generation)}</span></button>`).join('');
+		};
+		const showCharMenu = (open: boolean) => {
+			charMenu.hidden = !open;
+			charButton.setAttribute('aria-expanded', String(open));
+		};
+		// a click anywhere else closes it
+		this.on(win, 'click', ((e: MouseEvent) => { if (!charSwitch.contains(e.target as Node)) showCharMenu(false); }) as EventListener);
 		const load = async () => {
 			const ticket = ++this.loading;
 			// the first time only: after that, the old lists stay up until the new ones are ready
@@ -970,6 +1004,7 @@ export class Tracker extends Addon {
 				plays = result;
 				// new plays: All Time Highest reads again when it's shown
 				everStale = true;
+				void drawSwitcher();
 				// compared with what the lists showed: new plays flash (ADHD Mode)
 				newPlays = true;
 				try { renderLists(); } finally { newPlays = false; }
@@ -1191,8 +1226,21 @@ export class Tracker extends Addon {
 		this.on(win, 'click', (e) => {
 			// a click anywhere else closes the search help
 			if (!searchPop.hidden && !(e.target as Element).closest('.search-pop, .search-help')) showSearchHelp(false);
-			const target = (e.target as Element).closest<HTMLElement>('[data-view], [data-action], [data-set], [data-accent], [data-only], [data-skill]');
+			const target = (e.target as Element).closest<HTMLElement>('[data-view], [data-action], [data-set], [data-accent], [data-only], [data-skill], [data-char]');
 			if (!target) return;
+			// a character in the switcher: its plays (the game's own follows the game again)
+			if (target.dataset.char) {
+				showCharMenu(false);
+				const id = Number(target.dataset.char);
+				if (id === shownCharacter()) return;
+				viewCharacter(id);
+				plays = null;
+				ever = null;
+				everStale = true;
+				void drawSwitcher();
+				void load();
+				return;
+			}
 			// a skill in the Skills box: hide its maps, or show them again
 			if (target.dataset.skill) {
 				// four steps: shown → focused (only maps it's a top skill of) → its main-skill maps hidden → every map
@@ -1238,6 +1286,7 @@ export class Tracker extends Addon {
 			switch (action) {
 				case 'refresh': void refreshNow(target); if (page === 'shared') void loadShared(true); break;
 				case 'save-playlist': void savePlaylistNow(target); break;
+				case 'char-menu': showCharMenu(charMenu.hidden); break;
 				case 'save-all-time': void saveAllTime(target); break;
 				case 'pick-open': picked = picked ?? []; drawPicked(); break;
 				case 'pick-close': picked = null; closePickMenu(); drawPicked(); break;

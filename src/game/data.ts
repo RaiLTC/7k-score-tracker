@@ -4,10 +4,11 @@
 // - map names, key counts and lengths: the game's map catalogue, kept on this computer (IndexedDB) and fetched again
 //   once it's a day old, and right away when you've played a map it doesn't know yet (then again 1 and 5 minutes
 //   later; a map still missing after that is left unresolved and isn't asked about again);
-// - who you are: the game's API, asked once per game session;
+// - who you are: the game's API (the character the game is on, asked whenever a new play shows up), and your
+//   characters with 7K plays from the game's database (each one's plays, history and strain are kept apart);
 // - your strain: the game's API, asked once when a new play shows up (the game keeps no strain per play).
 
-import { gameDb, type SqlValue } from '@oss-idle/addon-sdk';
+import { gameCharacter, gameDb, type SqlValue } from '@oss-idle/addon-sdk';
 import { type MapInfo, type Play, is7kPlay, num, ONLY_7K, parseGains, totalOf } from '../rules/logic.js';
 import { restedStrain, strainPerMinute, strainWhenSet } from '../rules/strain.js';
 import { type LevelHistory, noteLevels } from '../rules/outdated.js';
@@ -24,8 +25,11 @@ const CACHE_DB = '7k-score-tracker', CACHE_STORE = 'kv', CATALOG_KEY = 'catalog-
 /** Catalogues kept before, without what's kept now: removed once the new one is saved. */
 const OLD_CATALOG_KEYS = ['catalog-v2', 'catalog-v3'];
 
+/** What the game's API says about a character (`me`, or any of yours by id): who, its strain, and its skills. */
+type CharacterAnswer = { character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number }, skills?: Record<string, { level?: number, prestige?: number, upgrades?: number, xp_multipliers?: { total?: string } }> };
 type Api = {
-	me?: (options?: { ruleset?: string }) => Promise<{ character_id?: number, fatigue?: { minutes?: number, at?: string }, warmup?: { bar?: number }, skills?: Record<string, { level?: number, prestige?: number, xp_multipliers?: { total?: string } }> } | null | undefined>,
+	me?: (options?: { ruleset?: string }) => Promise<CharacterAnswer | null | undefined>,
+	character?: (id: number, options?: { ruleset?: string }) => Promise<CharacterAnswer | null | undefined>,
 };
 /** id → [title, difficulty, keys, length in seconds, stars, mapper]; when it was fetched and last tried; maps it
  *  didn't have: id → [tries, when to try again]. */
@@ -158,9 +162,37 @@ const infoOf = (cat: Catalog, id: number): MapInfo | undefined => {
 
 // ---- your plays ----
 
-let characterId = 0;
+/** The character the game is on (its API's `me`; a rebirth or a switch in the game moves it), the one picked in the
+ *  switcher (0: the game's), and the guest's, for a player who never signed in. */
+let gameId = 0, viewId = 0, guestId = 0;
 /** The character the plays were read for (the playlist is saved for it too). */
 let playingAs = 0;
+/** The character the lists show: the one picked, else the game's. */
+export const shownCharacter = (): number => viewId || gameId || guestId;
+/** The character the game is on (0 before its API answered). */
+export const gameCharacterId = (): number => gameId;
+/** Shows a character's plays (0, or the game's own: follows the game again). */
+export const viewCharacter = (id: number): void => { viewId = id === gameId ? 0 : id; };
+
+/** A character in the switcher: name and generation from the game's database (unknown for one it doesn't keep). */
+export type CharacterInfo = { id: number, name: string, generation: number };
+let with7k: { at: number, ids: number[] } = { at: 0, ids: [] };
+/** Your characters with 7K plays (any play that gave a 7K-only skill XP), newest played first; read again after a minute. */
+export const sevenKCharacters = async (): Promise<number[]> => {
+	if (Date.now() - with7k.at < 60e3) return with7k.ids;
+	const rows = await rowsOf(`SELECT characterId AS id, MAX(playedAt) AS at FROM score_xp WHERE ${ONLY_7K.map(() => 'gains LIKE ?').join(' OR ')} GROUP BY characterId ORDER BY at DESC`, ONLY_7K.map((sk) => `%"${sk}"%`));
+	if (rows) with7k = { at: Date.now(), ids: rows.map((r) => num(r.id)).filter(Boolean) };
+	return with7k.ids;
+};
+/** The switcher's characters: yours with 7K plays (and the shown one), with their names where the game keeps them. */
+export const characterList = async (): Promise<CharacterInfo[]> => {
+	const ids = [...new Set([...await sevenKCharacters(), shownCharacter()].filter(Boolean))];
+	const rows = await gameCharacter.list().catch(() => []);
+	return ids.map((id) => {
+		const r = rows.find((x) => num(x.id) === id);
+		return { id, name: r ? String(r.name) : '', generation: num(r?.generation) || 1 };
+	});
+};
 
 /** Rows from the game's database (through the SDK, on its read path), or null while the game hasn't opened it. */
 const rowsOf = async (sql: string, params: SqlValue[]): Promise<Record<string, SqlValue>[] | null> => {
@@ -178,19 +210,14 @@ export const latestMark = async (): Promise<string> => {
 	return rows?.[0] ? `${String(rows[0].s)}:${String(rows[0].x)}` : '';
 };
 
-/** Your recent 7K plays, newest first, each with its XP per skill and its map. */
-export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
-	if (!characterId) {
-		const me = await askMe(api);
-		characterId = num(me?.character_id);
-	}
-	let id = characterId;
-	if (!id) {
-		const guest = await rowsOf('SELECT id FROM character WHERE current = 1 LIMIT 1', []);
-		id = num(guest?.[0]?.id);
-	}
+/** Your recent 7K plays, newest first, each with its XP per skill and its map: the shown character's, or with `of`,
+ *  that character's (then only plays from `from` on). */
+export const recent7k = async (api: Api | undefined, of = 0, from = 0): Promise<Play[]> => {
+	if (!of && !gameId) gameId = num((await askMe(api))?.character_id);
+	if (!of && !shownCharacter()) guestId = num((await gameCharacter.live().catch(() => undefined))?.id);
+	const id = of || shownCharacter();
 	if (!id) throw new TrackerError(TEXT.errors.noCharacter);
-	playingAs = id;
+	if (!of) playingAs = id;
 	// newest first, a batch at a time, until READ_PLAYS 7K plays are found (4K plays are read, then left out)
 	const out: Play[] = [];
 	let cat: Catalog | undefined;
@@ -198,7 +225,7 @@ export const recent7k = async (api: Api | undefined): Promise<Play[]> => {
 		const rows = await rowsOf(
 			`SELECT s.beatmapId AS beatmapId, s.playedAt AS playedAt, s.rate AS rate, s.mods AS mods, s.unranked AS unranked, s.pp AS pp, s.accuracy AS acc, s.MISS AS misses, x.gains AS gains
 			 FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
-			 WHERE s.characterId = ? ORDER BY s.playedAt DESC, s.id DESC LIMIT ? OFFSET ?`, [id, READ_PLAYS, batch * READ_PLAYS]);
+			 WHERE s.characterId = ? AND s.playedAt >= ? ORDER BY s.playedAt DESC, s.id DESC LIMIT ? OFFSET ?`, [id, from, READ_PLAYS, batch * READ_PLAYS]);
 		if (rows === null) throw new TrackerError(TEXT.errors.noDatabase);
 		const parsed = rows.map((r) => ({ r, gains: parseGains(r.gains) }));
 		// the first batch only: maps that can make the catalogue look out of date (ranked plays, as unranked maps are
@@ -222,7 +249,7 @@ let everFrom: Record<string, unknown> = { source: 'not read yet' };
  * with its JSON functions; null when it can't (then the newest plays are used instead).
  */
 export const allTime7k = async (): Promise<Play[] | null> => {
-	const id = playingAs || characterId;
+	const id = playingAs || shownCharacter();
 	if (!id) return null;
 	let rows: Record<string, SqlValue>[] | null;
 	try {
@@ -293,24 +320,43 @@ type StrainStore = { game?: [minutes: number, at: number], prior?: [minutes: num
 /** A play's strain: the change per minute of the map (`v`) and the strain bar after it (0-1). 0.1.35 kept only the
  *  change, as a number; 0.1.36 also how much of the map strained you (`strained`, no longer used). */
 export type StrainPlay = { v?: number, bar?: number, strained?: number, len?: number };
-let strainStore: StrainStore | undefined;
+const strainStores = new Map<number, StrainStore>();
 
 // ---- your skills' levels and prestige, for outdated plays ----
 
+// Each character's history is kept apart, under its key and the character's id (`…:levels:123`). Before characters
+// were told apart there was one, under the key alone: the game's character (the first one asked) takes it over.
 const LEVELS_KEY = '7k-score-tracker:levels';
-let levels: LevelHistory | undefined;
-/** Each skill's level and prestige as they changed (rules/outdated.js). */
+const levels = new Map<number, LevelHistory>();
 const MULTIPLIERS_KEY = '7k-score-tracker:multipliers';
-let multipliers: MultiplierHistory | undefined;
-/** Each skill's XP multiplier as it changed (rules/base.js), for base XP. */
-export const multiplierHistory = (): MultiplierHistory => {
-	if (multipliers) return multipliers;
+const multipliers = new Map<number, MultiplierHistory>();
+
+/** A character's store, read once: its own key, else (the game's character only) the one from before characters were
+ *  told apart, moved to its key. */
+const storeOf = <T>(key: string, cache: Map<number, T>, id: number, ok: (v: unknown) => v is T, empty: () => T): T => {
+	const kept = cache.get(id);
+	if (kept) return kept;
+	let value = empty();
 	try {
-		const h = JSON.parse(localStorage.getItem(MULTIPLIERS_KEY) ?? 'null') as MultiplierHistory | null;
-		if (h && typeof h === 'object') return (multipliers = h);
+		const own = JSON.parse(localStorage.getItem(`${key}:${id}`) ?? 'null') as unknown;
+		const old = id && id === gameId ? JSON.parse(localStorage.getItem(key) ?? 'null') as unknown : null;
+		if (ok(own)) value = own;
+		else if (ok(old)) {
+			value = old;
+			localStorage.setItem(`${key}:${id}`, JSON.stringify(old));
+			localStorage.removeItem(key);
+		}
 	} catch { /* no storage: start empty */ }
-	return (multipliers = {});
+	cache.set(id, value);
+	return value;
 };
+const saveStore = (key: string, id: number, value: unknown) => {
+	try { localStorage.setItem(`${key}:${id}`, JSON.stringify(value)); } catch { /* kept for this session only */ }
+};
+const isObject = <T>(v: unknown): v is T => !!v && typeof v === 'object';
+
+/** Each skill's XP multiplier as it changed (rules/base.js), for base XP: the shown character's, or `id`'s. */
+export const multiplierHistory = (id = shownCharacter()): MultiplierHistory => storeOf(MULTIPLIERS_KEY, multipliers, id, isObject<MultiplierHistory>, () => ({}));
 
 /** Maps' names and lengths from the catalogue, by id (undefined for one it doesn't know): one it doesn't know has the
  *  catalogue fetched again, like a map you played (a map newer than the stored catalogue, shared by someone else). */
@@ -319,17 +365,12 @@ export const mapInfos = async (ids: number[]): Promise<Record<number, MapInfo | 
 	return Object.fromEntries(ids.map((id) => [id, infoOf(cat, id)]));
 };
 
-/** Each play's base XP (its XP with your bonuses taken back out), or why it can't be used: newest first, as `plays`. */
-export const basePlays = (plays: Play[]) => plays.map((p, i) => ({ play: p, ...baseXp(p, { history: multiplierHistory(), recent: recentOfMap(plays, i), bar: strainOf(p.playedAt)?.bar }) }));
+/** Each play's base XP (its XP with your bonuses taken back out), or why it can't be used: newest first, as `plays`
+ *  (the shown character's, or `id`'s). */
+export const basePlays = (plays: Play[], id = shownCharacter()) => plays.map((p, i) => ({ play: p, ...baseXp(p, { history: multiplierHistory(id), recent: recentOfMap(plays, i), bar: strainOf(p.playedAt, id)?.bar }) }));
 
-export const levelHistory = (): LevelHistory => {
-	if (levels) return levels;
-	try {
-		const h = JSON.parse(localStorage.getItem(LEVELS_KEY) ?? 'null') as LevelHistory | null;
-		if (h && typeof h === 'object') return (levels = h);
-	} catch { /* no storage: start empty */ }
-	return (levels = {});
-};
+/** Each skill's level and prestige as they changed (rules/outdated.js): the shown character's, or `id`'s. */
+export const levelHistory = (id = shownCharacter()): LevelHistory => storeOf(LEVELS_KEY, levels, id, isObject<LevelHistory>, () => ({}));
 
 // ---- for the debug view: the game's API calls, and the newest plays ----
 
@@ -344,14 +385,17 @@ let apiLog: Promise<ApiCall[]> | undefined;
 /** The call log, read once from this computer (the tracker's own store, so it doesn't fill the game's storage). */
 const apiLogOf = () => (apiLog ??= cacheGet<ApiCall[]>(API_LOG_KEY).then((d) => (Array.isArray(d) ? d : [])));
 
-/** The game's `api.me` for 7K, kept in the debug view's call log; null when it isn't there or fails. */
-const askMe = async (api: Api | undefined) => {
-	if (!api?.me) return null;
-	const at = Date.now(), entry: ApiCall = { at, call: "me({ ruleset: 'mania7k' })", ms: 0 };
-	let me = null;
+/** The game's `api.me` for 7K (or with `id`, `api.character` for that character), kept in the debug view's call log;
+ *  null when it isn't there or fails. The game's character is noted from `me`. */
+const askMe = async (api: Api | undefined, id = 0) => {
+	const ask = id ? api?.character && (() => api.character!(id, { ruleset: 'mania7k' })) : api?.me && (() => api.me!({ ruleset: 'mania7k' }));
+	if (!ask) return null;
+	const at = Date.now(), entry: ApiCall = { at, call: id ? `character(${id}, { ruleset: 'mania7k' })` : "me({ ruleset: 'mania7k' })", ms: 0 };
+	let me: CharacterAnswer | null = null;
 	try {
-		me = (await api.me({ ruleset: 'mania7k' })) ?? null;
+		me = (await ask()) ?? null;
 		entry.answer = me;
+		if (!id && num(me?.character_id)) gameId = num(me?.character_id);
 	} catch (e) {
 		entry.error = String(e);
 	}
@@ -366,7 +410,8 @@ const askMe = async (api: Api | undefined) => {
 /** Your strain now and your Stamina upgrades (which move Peak), from the game's last answer, rested a minute per
  *  minute since; undefined before the game was asked. */
 export const strainNow = async (): Promise<{ minutes: number, upgrades: number } | undefined> => {
-	const call = (await apiLogOf()).find((c) => c.answer);
+	const id = shownCharacter();
+	const call = (await apiLogOf()).find((c) => c.answer && num((c.answer as CharacterAnswer).character_id) === id);
 	const me = call?.answer as { fatigue?: { minutes?: number }, skills?: { stamina?: { upgrades?: number } } } | undefined;
 	const minutes = me?.fatigue?.minutes;
 	if (!call || typeof minutes !== 'number') return undefined;
@@ -376,7 +421,7 @@ export const strainNow = async (): Promise<{ minutes: number, upgrades: number }
 /** Everything the debug view shows: the last 100 API calls, the strain store, the catalogue, and the newest plays with
  *  every column the game keeps, their map and their noted strain. Read only from this computer. */
 export const debugData = async (keep?: (info: MapInfo | undefined, beatmapId: number, rate: number, gains: Play['gains'], playedAt: number) => boolean): Promise<Record<string, unknown>> => {
-	const s = strainStoreOf(), id = playingAs || characterId;
+	const id = playingAs || shownCharacter(), s = strainStoreOf(id);
 	const cat = await mapCatalog([]);
 	const rows = id ? await rowsOf(
 		`SELECT s.*, x.gains AS xpGains FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
@@ -384,8 +429,8 @@ export const debugData = async (keep?: (info: MapInfo | undefined, beatmapId: nu
 	const time = (t: unknown) => (num(t) ? new Date(num(t)).toISOString() : t);
 	return {
 		api: (await apiLogOf()).map((c) => ({ ...c, at: time(c.at), atMs: c.at })),
-		levels: levelHistory(),
-		multipliers: multiplierHistory(),
+		levels: levelHistory(id),
+		multipliers: multiplierHistory(id),
 		allTime: everFrom,
 		strain: { game: s.game && { minutes: s.game[0], at: time(s.game[1]) }, prior: s.prior && { minutes: s.prior[0], at: time(s.prior[1]) }, waits: s.waits ?? 0, playsNoted: Object.keys(s.plays).length },
 		catalog: { maps: Object.keys(cat.maps).length, fetchedAt: time(cat.at), triedAt: time(cat.tried), missing: cat.missing ?? {} },
@@ -403,13 +448,13 @@ export const debugData = async (keep?: (info: MapInfo | undefined, beatmapId: nu
  *  (the bar after the play, 0-1, and the change per minute of the map). */
 const debugPlayOf = (cat: Catalog, r: Record<string, SqlValue>) => {
 	const at = num(r.playedAt);
-	return { ...r, playedAt: new Date(at).toISOString(), playedAtMs: at, map: infoOf(cat, num(r.beatmapId)) ?? 'not in the catalogue', strain: strainOf(at) ?? 'not noted' };
+	return { ...r, playedAt: new Date(at).toISOString(), playedAtMs: at, map: infoOf(cat, num(r.beatmapId)) ?? 'not in the catalogue', strain: strainOf(at, num(r.characterId)) ?? 'not noted' };
 };
 /** One play (by when it was played and its map) as the debug view shows it, read as the debug view reads them (the
  *  newest 500, matched here rather than in the query, so the time compares as the lists read it); null when it isn't
  *  found. */
 export const debugPlay = async (playedAt: number, beatmapId: number): Promise<Record<string, unknown> | null> => {
-	const id = playingAs || characterId;
+	const id = playingAs || shownCharacter();
 	if (!id) return null;
 	const rows = await rowsOf(
 		`SELECT s.*, x.gains AS xpGains FROM score s LEFT JOIN score_xp x ON x.scoreId = s.id
@@ -418,43 +463,59 @@ export const debugPlay = async (playedAt: number, beatmapId: number): Promise<Re
 	return row ? debugPlayOf(await mapCatalog([]), row) : null;
 };
 
-const strainStoreOf = (): StrainStore => {
-	if (strainStore) return strainStore;
-	try {
-		const s = JSON.parse(localStorage.getItem(STRAIN_KEY) ?? 'null') as StrainStore | null;
-		if (s && typeof s.plays === 'object') return (strainStore = s);
-	} catch { /* no storage: start empty */ }
-	return (strainStore = { plays: {} });
-};
-const saveStrain = (s: StrainStore) => {
+/** A character's strain store: the shown character's, or `id`'s. */
+const strainStoreOf = (id = shownCharacter()): StrainStore =>
+	storeOf(STRAIN_KEY, strainStores, id, (s): s is StrainStore => isObject<StrainStore>(s) && typeof s.plays === 'object', () => ({ plays: {} }));
+const saveStrain = (id: number, s: StrainStore) => {
 	const at = Object.keys(s.plays).map(Number).sort((a, b) => b - a);
 	for (const old of at.slice(STRAIN_KEEP)) delete s.plays[old];
-	try { localStorage.setItem(STRAIN_KEY, JSON.stringify(s)); } catch { /* kept for this session only */ }
+	saveStore(STRAIN_KEY, id, s);
 };
 
-/** True while the newest play waits for the game to count its strain (checked again on the next tick). */
-export const strainWaiting = (): boolean => (strainStoreOf().waits ?? 0) > 0;
+/** True while a character's newest play waits for the game to count its strain (checked again on the next tick). */
+export const strainWaiting = (): boolean => [...strainStores.values()].some((s) => (s.waits ?? 0) > 0);
 
-/** A play's strain, or undefined when it wasn't noted (played before the tracker noted strain). */
-export const strainOf = (playedAt: number): StrainPlay | undefined => {
-	const x = strainStoreOf().plays[playedAt];
+/** A play's strain (the shown character's, or `id`'s), or undefined when it wasn't noted (played before the tracker
+ *  noted strain). */
+export const strainOf = (playedAt: number, id = shownCharacter()): StrainPlay | undefined => {
+	const x = strainStoreOf(id).plays[playedAt];
 	return typeof x === 'number' ? { v: x } : x;
 };
 
+/** How long a character's play counts as new enough to ask the game about its strain (others play while you watch one). */
+const NOTE_WITHIN = 864e5;
+
 /**
- * Notes your newest play's strain: the bar after it, and the change from the strain your last play left (rested
- * until this one started) per minute of the map.
+ * Notes each character's newest play's strain: the bar after it, and the change from the strain its last play left
+ * (rested until this one started) per minute of the map. The game's character is asked every time (its levels and
+ * bonuses too); your other characters with 7K plays only when they have a play not noted yet (or waiting for its
+ * strain), as they play at the same time.
  * Called when a new play shows up (and when the tracker opens). True when a play was noted.
  */
 export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 	const me = await askMe(api);
-	// the game gives your strain now (rested since `at`, the end of your last play, a minute per minute), so the
+	let noted = me ? await noteFor(me) : false;
+	if (!api?.character) return noted;
+	for (const id of await sevenKCharacters()) {
+		if (id === gameId) continue;
+		const s = strainStoreOf(id);
+		const newest = num((await rowsOf('SELECT MAX(playedAt) AS at FROM score WHERE characterId = ?', [id]))?.[0]?.at);
+		if (!newest || ((newest in s.plays || Date.now() - newest > NOTE_WITHIN) && !(s.waits ?? 0))) continue;
+		const answer = await askMe(api, id);
+		if (answer && (await noteFor({ ...answer, character_id: id }))) noted = true;
+	}
+	return noted;
+};
+
+/** Notes one character's newest play's strain, levels and bonuses from the game's answer about it. */
+const noteFor = async (me: CharacterAnswer): Promise<boolean> => {
+	// the game gives the strain now (rested since `at`, the end of the last play, a minute per minute), so the
 	// strain it set at `at` is that plus the rest since: kept from the first check after `at` only, as later checks
 	// would rest it again
 	const now = me?.fatigue?.minutes, setAt = Date.parse(String(me?.fatigue?.at ?? ''));
 	const id = num(me?.character_id);
 	if (typeof now !== 'number' || !Number.isFinite(setAt) || !id) return false;
-	const s = strainStoreOf();
+	const s = strainStoreOf(id);
 	// when the game sets a new strain, the one it had is the one before it
 	if (!s.game || s.game[1] !== setAt) {
 		if (s.game) s.prior = s.game;
@@ -465,13 +526,9 @@ export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 	const newest = (await rowsOf('SELECT playedAt, beatmapId, rate FROM score WHERE characterId = ? ORDER BY playedAt DESC LIMIT 1', [id]))?.[0];
 	const at = num(newest?.playedAt);
 	// the skills' levels and prestige: a change is the newest play's doing
-	if (me?.skills && noteLevels(levelHistory(), me.skills, at || Date.now())) {
-		try { localStorage.setItem(LEVELS_KEY, JSON.stringify(levelHistory())); } catch { /* kept for this session only */ }
-	}
+	if (me?.skills && noteLevels(levelHistory(id), me.skills, at || Date.now())) saveStore(LEVELS_KEY, id, levelHistory(id));
 	// the XP multipliers: from when they were seen (a change comes from an upgrade bought, not from a play)
-	if (me?.skills && noteMultipliers(multiplierHistory(), me.skills, Date.now())) {
-		try { localStorage.setItem(MULTIPLIERS_KEY, JSON.stringify(multiplierHistory())); } catch { /* kept for this session only */ }
-	}
+	if (me?.skills && noteMultipliers(multiplierHistory(id), me.skills, Date.now())) saveStore(MULTIPLIERS_KEY, id, multiplierHistory(id));
 	if (newest && !(at in s.plays)) {
 		const info = infoOf(await mapCatalog([]), num(newest.beatmapId));
 		const lengthMin = info && info.lengthSec > 0 ? info.lengthSec / (num(newest.rate) || 1) / 60 : 0;
@@ -480,7 +537,7 @@ export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 		// not yet: the game hasn't counted the play's strain, wait a check
 		if (lengthMin && !near && setAt < at && (s.waits ?? 0) < STRAIN_WAITS) {
 			s.waits = (s.waits ?? 0) + 1;
-			saveStrain(s);
+			saveStrain(id, s);
 			return false;
 		}
 		if (near) {
@@ -493,11 +550,11 @@ export const noteStrain = async (api: Api | undefined): Promise<boolean> => {
 			if (was !== undefined) play.v = Math.round(strainPerMinute(was, minutes, lengthMin) * 100) / 100;
 			s.plays[at] = play;
 			s.waits = 0;
-			saveStrain(s);
+			saveStrain(id, s);
 			return true;
 		}
 	}
 	s.waits = 0;
-	saveStrain(s);
+	saveStrain(id, s);
 	return false;
 };

@@ -33,6 +33,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* the header: the title, versions and icon buttons; then the tabs, the search box, the unit and Refresh */
 .title-row, .tab-row { display: flex; align-items: center; gap: 8px; }
 .versions { color: var(--muted); font-size: 12px; }
+/* the character switcher, after the version: the dark of the tabs bar, its menu as the right-click menu's */
+.char-switch { position: relative; }
+.char-btn { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; color: var(--text); background: var(--field); border: 1px solid var(--line-strong); border-radius: 6px; font: inherit; font-size: 12px; }
+.char-btn:hover, .char-btn[aria-expanded='true'] { background: var(--hover); }
+.char-btn .gen, .char-menu .gen, .char-btn .caret { color: var(--muted); }
+.char-btn .caret { font-size: 10px; }
+.pick-menu.char-menu { top: calc(100% + 4px); left: 0; min-width: 200px; }
+.pick-menu.char-menu[hidden] { display: none; }
+.char-menu button { display: flex; align-items: center; gap: 8px; }
+.char-menu button .gen { margin-left: auto; }
+.char-menu button[aria-checked='true'] { background: var(--accent-soft); }
+.char-menu .now { padding: 1px 5px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 4px; font-size: 10px; }
 .tab-row .search { flex: 1; min-width: 120px; cursor: auto; }
 .tab-row .search-field { height: 32px; }
 .head:active { cursor: grabbing; }

@@ -2,6 +2,17 @@
 
 All notable changes to 7K Score Tracker. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.16] - 2026-11-28
+
+### Added
+
+- Character switcher in the title bar: see any of your characters' 7K plays
+
+### Fixed
+
+- Follow the game's character after a 7K rebirth or a switch, without restarting
+- Keep each character's bonuses, levels and strain apart, and share every character's plays in Shared
+
 ## [1.2.15] - 2026-11-23
 
 ### Changed

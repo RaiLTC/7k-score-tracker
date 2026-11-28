@@ -4,8 +4,10 @@
 //   from before they agreed (or from while sharing was off) is ever sent.
 // - Everyone, sharing or not, gets the map table, kept on this computer and fetched again every 10 minutes, a minute after everyone's batch (at :00, :10, :20…)
 //   (or right after a batch is sent, or on Refresh).
+// - Every character of yours with 7K plays shares (they play at the same time), each play's base XP worked out with
+//   that character's own bonuses and levels, all under the one player id.
 // Kept on this computer: a random player id (made here; it's all the server knows about a player), how far sending
-// has got, and the last table.
+// has got (for each character), and the last table.
 
 import { buildMeta, gameHost } from '@oss-idle/addon-sdk';
 import { type MapInfo, type Play, num } from '../rules/logic.js';
@@ -41,9 +43,12 @@ let failedAt = 0;
 export type SharedMap = { map: number, rate: number, players: number, plays: number, perMinute: number, base: Record<string, number>, mapPlayers?: number };
 /** `sharing`: false while the server's off switch is on (then nothing is sent). */
 export type SharedTable = { game: string, made: string, fetched: number, sharing?: boolean, maps: SharedMap[] };
-/** How far sending has got: plays from `since` (agreeing) on, up to `last`, were sent; `note`: sent, not shown yet;
- *  `tryAt`: when the last batch was tried (the next goes at the clock's next send time after it). */
-type Sent = { since: number, last: number, count: number, note: number, tryAt: number };
+/** How far sending has got: plays from `since` (agreeing) on, up to `last`, were sent (`lastBy`: each character's,
+ *  `last` for one without its own yet); `note`: sent, not shown yet; `tryAt`: when the last batch was tried (the next
+ *  goes at the clock's next send time after it). */
+type Sent = { since: number, last: number, lastBy?: Record<number, number>, count: number, note: number, tryAt: number };
+/** A character's plays to share from: its id, and its plays newest first. */
+export type CharacterPlays = [id: number, plays: Play[]];
 
 const read = <T>(key: string): T | null => { try { return JSON.parse(localStorage.getItem(key) ?? 'null') as T | null; } catch { return null; } };
 const write = (key: string, value: unknown) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* this session only */ } };
@@ -80,22 +85,28 @@ export const takeNote = (): number => {
 	return n;
 };
 
-/** A skill's level when it was played (the mark in effect then; the first mark counts for earlier plays). */
-const levelAt = (skill: string, at: number): number => {
-	const marks = levelHistory()[skill] ?? [];
+/** How far a character's plays were sent: plays after this time are waiting. */
+export const sentUpTo = (id: number): number => sentState().lastBy?.[id] ?? sentState().last;
+
+/** A skill's level when the character played (the mark in effect then; the first mark counts for earlier plays). */
+const levelAt = (skill: string, at: number, id: number): number => {
+	const marks = levelHistory(id)[skill] ?? [];
 	let level = num(marks[0]?.[1]);
 	for (const [from, lv] of marks) if (from <= at) level = num(lv);
 	return level;
 };
 
-/** The plays waiting to be sent: base XP worked out, since sharing (last) started, not sent yet. @param plays newest first */
-const waitingIn = (plays: Play[]) => {
-	const s = sentState();
-	if (!s.since) return [];
-	return basePlays(plays).flatMap((b) => ('base' in b && b.play.playedAt > s.last && b.play.info && b.play.info.lengthSec > 0 ? [{ play: b.play, base: b.base }] : []));
+/** The plays waiting to be sent, every character's, oldest last: base XP worked out with each one's history, since
+ *  sharing (last) started, not sent yet. */
+const waitingIn = (all: CharacterPlays[]) => {
+	if (!sentState().since) return [];
+	return all.flatMap(([id, plays]) => {
+		const from = sentUpTo(id);
+		return basePlays(plays, id).flatMap((b) => ('base' in b && b.play.playedAt > from && b.play.info && b.play.info.lengthSec > 0 ? [{ id, play: b.play, base: b.base }] : []));
+	}).sort((a, b) => b.play.playedAt - a.play.playedAt);
 };
-/** How many plays are waiting to be sent. @param plays newest first */
-export const waitingCount = (plays: Play[]): number => waitingIn(plays).length;
+/** How many plays are waiting to be sent. */
+export const waitingCount = (all: CharacterPlays[]): number => waitingIn(all).length;
 /** When the next batch goes. */
 /** How long before the server saves its tables (every 10 minutes on the clock) everyone sends: :09, :19, :29… */
 const SEND_LEAD = 60e3;
@@ -104,9 +115,9 @@ export const nextSendAt = (): number => (Math.floor((sentState().tryAt + SEND_LE
 
 /**
  * Sends the plays waiting, when the next batch is due (every 10 minutes); how many were sent.
- * @param plays the newest plays, newest first (as read)
+ * @param all each character's newest plays, newest first (as read)
  */
-export const sendBatch = async (plays: Play[]): Promise<number> => {
+export const sendBatch = async (all: CharacterPlays[]): Promise<number> => {
 	const s = sentState(), now = Date.now();
 	if (!s.since || now < nextSendAt() || sharedTable()?.sharing === false) return 0;
 	const game = gameVersion();
@@ -114,18 +125,21 @@ export const sendBatch = async (plays: Play[]): Promise<number> => {
 	// due: the next check is at the next send time, whether anything goes or not
 	s.tryAt = now;
 	saveSent();
-	const waiting = waitingIn(plays);
+	// the oldest 200 waiting, whoever played them
+	const waiting = waitingIn(all).slice(-200);
 	if (!waiting.length) return 0;
-	const batch = waiting.slice(-200).map(({ play: p, base }) => ({
+	const batch = waiting.map(({ id, play: p, base }) => ({
 		map: p.beatmapId, rate: p.rate, mods: p.mods, acc: num(p.acc), misses: num(p.misses), len: p.info!.lengthSec, base, at: p.playedAt,
-		levels: Object.fromEntries(Object.keys(base).map((sk) => [sk, levelAt(sk, p.playedAt)])),
+		levels: Object.fromEntries(Object.keys(base).map((sk) => [sk, levelAt(sk, p.playedAt, id)])),
 	}));
 	try {
 		const res = await fetch(`${SHARED_URL}/v1/plays`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ player: playerId(), game, plays: batch }) });
 		// the server's off switch: nothing more is sent until the table says sharing is back
 		if (res.status === 503) { const t = sharedTable(); if (t) write(TABLE_KEY, { ...t, sharing: false, fetched: 0 }); throw new Error('paused'); }
 		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		s.last = Math.max(...batch.map((b) => b.at));
+		s.lastBy ??= {};
+		for (const { id, play } of waiting) s.lastBy[id] = Math.max(s.lastBy[id] ?? s.last, play.playedAt);
+		s.last = Math.max(s.last, ...batch.map((b) => b.at));
 		s.count += batch.length;
 		s.note += batch.length;
 		saveSent();

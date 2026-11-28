@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { agoText, allTimeBest, bestBySkill, bestMaps, dayOf, is7kPlay, parseGains, parseSearch, playedIn, searching, shareOf, timeOf, totalOf, xpText } from '../src/rules/logic.js';
+import { agoText, allTimeBest, bestBySkill, bestMaps, dayOf, is7kPlay, num, parseGains, parseSearch, playedIn, searching, shareOf, timeOf, totalOf, xpText } from '../src/rules/logic.js';
 import { arrowsOf, restedStrain, strainPerMinute, strainWhenSet } from '../src/rules/strain.js';
 
 const play = (beatmapId, gains, info, rate = 1) => ({ beatmapId, playedAt: 0, rate, mods: '', gains, info, total: totalOf(gains) });
@@ -209,4 +209,10 @@ test('the picked skills\' share of a map\'s XP: all of it with none picked, only
 	assert.equal(shareOf(gains, ['focus', 'ln']), 0.9);
 	assert.equal(shareOf(gains, ['jacks']), 0);
 	assert.equal(shareOf({}, ['focus']), 0);
+});
+
+test('XP saved as text (the game keeps numbers past 2^53 as text) still counts', () => {
+	const gains = parseGains('{"jacks":"1.5e30","ln":2000}');
+	assert.equal(num(gains.jacks), 1.5e30);
+	assert.equal(totalOf(gains), 1.5e30 + 2000);
 });
